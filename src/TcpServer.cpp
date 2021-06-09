@@ -74,8 +74,7 @@ bool TcpServer::Accept()
   perror("accept");
   return false;
  }
-
- printf("客户端(%s)已连接。\n", inet_ntoa(clientaddr.sin_addr));
+ return true;
 }
 
 

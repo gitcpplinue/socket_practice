@@ -14,7 +14,7 @@
 void EXIT(int sig);
 
 
-TcpClient tcpc;
+TcpClient g_tcpc;
 
 int main(int argc, char *argv[])
 {
@@ -27,13 +27,13 @@ int main(int argc, char *argv[])
 
  SIG_DISABLE_ALL;
 
- tcpc.Init();
+ g_tcpc.Init();
 
  SIG_SET_FUNC(SIGINT, EXIT);
  SIG_SET_FUNC(SIGTERM, EXIT);
 
 
- tcpc.Connect(argv[1], atoi(argv[2]));
+ g_tcpc.Connect(argv[1], atoi(argv[2]));
 
  char buffer[1024];
  for(int i = 0; i < 10; ++i)
@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
   memset(buffer, 0, sizeof(buffer));
   sprintf(buffer, "第%d条消息，编号%03d。", i + 1 ,i + 1);
 
-  iret = tcpc.Send(buffer, strlen(buffer), 0);
+  iret = g_tcpc.Send(buffer, strlen(buffer), 0);
   if(iret <= 0)
   {
    perror("send");
@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
 
 
   memset(buffer, 0, sizeof(buffer));
-  iret = tcpc.Recv(buffer, sizeof(buffer), 0);
+  iret = g_tcpc.Recv(buffer, sizeof(buffer), 0);
   if(iret <= 0)
   {
    printf("iret = %d \n", iret);
@@ -78,7 +78,7 @@ void EXIT(int sig)
 
  printf("客户端收到信号终止 \n");
 
- close(tcpc.GetSocket());
+ close(g_tcpc.GetSocket());
 
  exit(0);
 }
