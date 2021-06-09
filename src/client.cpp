@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include "TcpClient.h"
 
 int main(int argc, char *argv[])
 {
@@ -18,42 +19,9 @@ int main(int argc, char *argv[])
  }
 
 
- // 创建套接字
- int sockfd; 
- sockfd = socket(AF_INET, SOCK_STREAM, 0); // 地址族、socket类型、默认选项
- if (sockfd == -1)
- {
-  perror("socket");
-  return -1;
- }
+ TcpClient tcpc;
 
-
-
- // 设置套接字相关参数
- sockaddr_in servaddr;
- hostent* h = gethostbyname(argv[1]);
- if(h == 0)
- {
-  printf("gethostbyname failed.\n");
-  close(sockfd);
-  return -1;
- }
-
-
-
- memset(&servaddr, 0, sizeof(servaddr));
- servaddr.sin_family = AF_INET; // 地址族 
- servaddr.sin_port = htons(atoi(argv[2])); // 端口号，转换为网络字节序
- memcpy(&servaddr.sin_addr, h->h_addr, h->h_length);
- // servaddr.sin_addr.s_addr = inet_addr("192.168.190.134");
-
- // 连接到服务端 
- if (connect(sockfd, (sockaddr*)&servaddr, sizeof(servaddr)) != 0)
- {
-  perror("conncet");
-  return -1;
- }
- printf("已连接到服务端(%s) \n", inet_ntoa(servaddr.sin_addr));
+ tcpc.Connect(argv[1], atoi(argv[2]));
 
  char buffer[1024];
  for(int i = 0; i < 10; ++i)
@@ -62,7 +30,7 @@ int main(int argc, char *argv[])
   memset(buffer, 0, sizeof(buffer));
   sprintf(buffer, "第%d条消息，编号%03d。", i + 1 ,i + 1);
 
-  iret = send(sockfd, buffer, strlen(buffer), 0);
+  iret = tcpc.Send(buffer, strlen(buffer), 0);
   if(iret <= 0)
   {
    perror("send");
@@ -72,7 +40,7 @@ int main(int argc, char *argv[])
 
 
   memset(buffer, 0, sizeof(buffer));
-  iret = recv(sockfd, buffer, sizeof(buffer), 0);
+  iret = tcpc.Recv(buffer, sizeof(buffer), 0);
   if(iret <= 0)
   {
    printf("iret = %d \n", iret);
@@ -82,5 +50,4 @@ int main(int argc, char *argv[])
   printf("--------------------------\n");
 
  }
- close(sockfd);
 }
