@@ -8,6 +8,12 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include "TcpServer.h"
+#include "SIG.h"
+
+void EXIT(int sig);
+
+
+TcpServer tcps;
 
 
 int main(int argc, char *argv[])
@@ -18,9 +24,21 @@ int main(int argc, char *argv[])
   return -1;
  }
 
- TcpServer tcps(atoi(argv[1]));
+ // 在套接字完成初始化前屏蔽所有信号
+ SIG_DISABLE_ALL;
+
+ tcps.Init(atoi(argv[1]));
+
+ // 只设置SIGINT和SIGTERM的信号处理函数
+ SIG_SET_FUNC(SIGINT, EXIT);
+ SIG_SET_FUNC(SIGTERM, EXIT);
+
 
  tcps.Accept();
+
+ printf("等待5s,尝试将监听套接字关闭后再与客户端通信 \n");
+ close(tcps.GetListen());
+ sleep(5);
 
  char buffer[1024];
  while(1)
@@ -47,3 +65,27 @@ int main(int argc, char *argv[])
  }
 
 }
+
+
+
+
+void EXIT(int sig)
+{
+ if(sig > 0) 
+ { // 屏蔽信号，避免在运行的过程中再被调用
+  signal(sig, SIG_IGN);
+  signal(SIGINT, SIG_IGN);
+  signal(SIGTERM, SIG_IGN);
+ }
+ 
+ printf("服务端收到信号终止 \n");
+ 
+ close(tcps.GetListen());
+ close(tcps.GetClient());
+  
+ exit(0);
+}
+
+
+
+

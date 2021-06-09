@@ -9,6 +9,12 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include "TcpClient.h"
+#include "SIG.h"
+
+void EXIT(int sig);
+
+
+TcpClient tcpc;
 
 int main(int argc, char *argv[])
 {
@@ -19,13 +25,21 @@ int main(int argc, char *argv[])
  }
 
 
- TcpClient tcpc;
+ SIG_DISABLE_ALL;
+
+ tcpc.Init();
+
+ SIG_SET_FUNC(SIGINT, EXIT);
+ SIG_SET_FUNC(SIGTERM, EXIT);
+
 
  tcpc.Connect(argv[1], atoi(argv[2]));
 
  char buffer[1024];
  for(int i = 0; i < 10; ++i)
  {
+  sleep(1);
+
   int iret;
   memset(buffer, 0, sizeof(buffer));
   sprintf(buffer, "第%d条消息，编号%03d。", i + 1 ,i + 1);
@@ -51,3 +65,21 @@ int main(int argc, char *argv[])
 
  }
 }
+
+
+void EXIT(int sig)
+{
+ if(sig > 0)
+ { // 屏蔽信号，避免在运行的过程中再被调用
+  signal(sig, SIG_IGN);
+  signal(SIGINT, SIG_IGN);
+  signal(SIGTERM, SIG_IGN);
+ }
+
+ printf("客户端收到信号终止 \n");
+
+ close(tcpc.GetSocket());
+
+ exit(0);
+}
+

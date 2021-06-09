@@ -1,17 +1,32 @@
 #include "TcpServer.h"
 
 TcpServer::TcpServer()
-{ Init(5000); }
+{
+ m_listenfd = 0;
+ m_clientfd = 0; 
+}
 
 
 TcpServer::TcpServer(int port)
-{ Init(port); }
+{
+ m_listenfd = 0;
+ m_clientfd = 0; 
+}
 
 
 TcpServer::~TcpServer()
 { 
- close(m_listenfd);
- close(m_clientfd);
+ if(m_listenfd != 0)
+ {
+  close(m_listenfd);
+  m_listenfd = 0;
+ }
+
+ if(m_clientfd != 0)
+ {
+  close(m_clientfd);
+  m_clientfd = 0; 
+ }
 }
 
 
@@ -75,4 +90,5 @@ int TcpServer::Recv(void* buf, size_t len, int flags)
  return recv(m_clientfd, buf, len, flags);
 }
 
+ 
 

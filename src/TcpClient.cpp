@@ -1,11 +1,15 @@
 #include "TcpClient.h"
 
 TcpClient::TcpClient()
-{ Init(); }
+{
+ m_sockfd = 0; 
+}
 
 TcpClient::~TcpClient()
 { 
- close(m_sockfd);
+ if(m_sockfd != 0)
+  close(m_sockfd);
+ m_sockfd = 0; 
 }
 
 
