@@ -30,6 +30,7 @@ bool TcpClient::Init()
 bool TcpClient::Connect(const char *addr, int port)
 {
  sockaddr_in servaddr;
+/*
  hostent* h = gethostbyname(addr);
  if(h == 0)
  {
@@ -37,12 +38,13 @@ bool TcpClient::Connect(const char *addr, int port)
   close(m_sockfd);
   return false;
  }
+*/
 
  memset(&servaddr, 0, sizeof(servaddr));
  servaddr.sin_family = AF_INET; // 地址族
  servaddr.sin_port = htons(port); // 端口号，转换为网络字节序
- memcpy(&servaddr.sin_addr, h->h_addr, h->h_length);
- // servaddr.sin_addr.s_addr = inet_addr("192.168.190.134");
+ // memcpy(&servaddr.sin_addr, h->h_addr, h->h_length);
+ servaddr.sin_addr.s_addr = inet_addr(addr);
 
  // 连接到服务端
  if (connect(m_sockfd, (sockaddr*)&servaddr, sizeof(servaddr)) != 0)

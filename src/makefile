@@ -4,7 +4,7 @@ run: test
 	./test
 
 test: test.cpp 
-	g++ -g -o test test.cpp 
+	g++ -g -o test test.cpp -lpthread -std=c++11
 	
 
 

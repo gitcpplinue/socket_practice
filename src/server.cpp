@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
   err = pthread_create(&tid, NULL, ClientThread, (void*)(long)clientfd);
   if(err != 0)
     printf("线程创建失败，错误值：%d \n", err);
-  g_vthreads.push_back(tid); // 将刚申请的客户端套接字存入容器
+  g_vthreads.push_back(tid); // 将新创建的线程id存入容器
 
   printf("第%d个客户端已连接 \n", ++count);
  }
@@ -77,7 +77,7 @@ void* ClientThread(void* arg)
   iret = g_tcps.Recv(buffer, sizeof(buffer), 0);
   if(iret <= 0)
   {
-   printf("iret = %d \n", iret);
+//   printf("iret = %d \n", iret);
    break;
   }
   printf("接收: %s \n", buffer);
@@ -118,13 +118,13 @@ void EXIT(int sig)
 
 // 终止所有线程
  for(pthread_t tid: g_vthreads) 
-   pthread_cancel(tid);
+   pthread_cancel(tid); // 对已经停止的线程再调用pthread_cancel，返回值为3
 
- sleep(3); // 给线程的清理留出时间
+ sleep(1); // 给线程的清理留出时间
  printf("服务端收到信号终止 \n");
  
  close(g_tcps.GetListen());
- close(g_tcps.GetClient());
+ close(g_tcps.GetClient()); // close调用错误会返回-1，errno设为9:Bad file descriptor
   
  exit(0);
 }
