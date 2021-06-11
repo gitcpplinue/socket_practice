@@ -8,15 +8,22 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netinet/tcp.h>
 #include <vector>
 
 #include "TcpServer.h"
 #include "SIG.h"
 
 
+// 线程主函数
 void* ClientThread(void* arg); 
 
+// TCP保活机制激活与设置
+int SetKeepAlive(int fd, int time, int intvl, int probes);
+
+// 响应终止信号9和15
 void EXIT(int sig);
+// 线程退出函数
 void th_exit(void* arg);
 
 
@@ -64,6 +71,7 @@ int main(int argc, char *argv[])
 void* ClientThread(void* arg)
 {
  int clientfd = (long)arg;
+ SetKeepAlive(clientfd, 120, 20, 5);
 
  // 登记线程清理函数
  pthread_cleanup_push(th_exit, (void*)(long)clientfd);
@@ -104,6 +112,43 @@ void* ClientThread(void* arg)
 }
 
 
+// TCP保活机制激活与设置
+// time: 经过time秒没发送报文后，执行保活操作
+// intvl: 报文段发送间隔
+// probes: 尝试次数
+int SetKeepAlive(int fd, int time, int intvl, int probes)
+{
+ int val = 1;
+ if(setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) == -1)
+ {
+  printf("error:SOL_SOCKET SO_KEEPALIVE \n");
+  return -1;
+ }
+
+ val = time;
+ if(setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &val, sizeof(val)) == -1)
+ {
+  printf("error:IPPROTO_TCP TCP_KEEPIDLE \n");
+  return -1;
+ }
+
+ val = intvl; 
+ if(setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &val, sizeof(val)) == -1)
+ {
+  printf("error:IPPROTO_TCP TCP_KEEPINTVL \n");
+  return -1;
+ }
+ 
+
+ val = probes;
+ if(setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &val, sizeof(val)) == -1)
+ {
+  printf("error:IPPROTO_TCP TCP_KEEPCNT \n");
+  return -1;
+ }
+
+ return 0;
+}
 
 // -------------------------清理函数-----------------------
 // 退出信号处理函数
