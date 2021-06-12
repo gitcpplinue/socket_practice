@@ -24,8 +24,10 @@ public:
 
  bool Init(int port); // 完成监听套接字的初始化和绑定、监听操作
  bool Accept(); // 调用accept等待客户端的连接
- int Send(const void *buf, size_t len, int flags); // 调用send向连接的另一端发送数据
- int Recv(void *buf, size_t len, int flags); // 调用recv接收连接另一端的数据
+ int Send(const void *buf, size_t len, int flags); 
+ int Send(int sockfd, const void *buf, size_t len, int flags); // 为多线程服务端重载的函数
+ int Recv(void *buf, size_t len, int flags); 
+ int Recv(int sockfd, void *buf, size_t len, int flags); 
 
 
  int GetListen() { return m_listenfd; }

@@ -52,7 +52,10 @@ int main(int argc, char *argv[])
  while(1)
  {
   if(g_tcps.Accept() == false)
+  {
+   sleep(1);
    continue;
+  }
 
   pthread_t tid;
   int err, clientfd;
@@ -82,7 +85,7 @@ void* ClientThread(void* arg)
  {
   int iret;
   memset(buffer, 0, sizeof(buffer));
-  iret = g_tcps.Recv(buffer, sizeof(buffer), 0);
+  iret = g_tcps.Recv(clientfd, buffer, sizeof(buffer), 0);
   if(iret <= 0)
   {
 //   printf("iret = %d \n", iret);
@@ -91,7 +94,7 @@ void* ClientThread(void* arg)
   printf("接收: %s \n", buffer);
   
 
-  iret = g_tcps.Send(buffer, strlen(buffer), 0);
+  iret = g_tcps.Send(clientfd, buffer, strlen(buffer), 0);
   if(iret <= 0)
   {
    perror("send");

@@ -22,6 +22,7 @@ TcpServer::~TcpServer()
   m_listenfd = 0;
  }
 
+ // 似乎对已经关闭的套接字标识符再次调用close()不会出大问题，所以暂时这么处理
  if(m_clientfd != 0)
  {
   close(m_clientfd);
@@ -82,11 +83,19 @@ int TcpServer::Send(const void* buf, size_t len, int flags)
 {
  return send(m_clientfd, buf, len, flags);
 }
+int TcpServer::Send(int sockfd, const void* buf, size_t len, int flags)
+{
+ return send(sockfd, buf, len, flags);
+}
 
 
 int TcpServer::Recv(void* buf, size_t len, int flags)
 {
  return recv(m_clientfd, buf, len, flags);
+}
+int TcpServer::Recv(int sockfd, void* buf, size_t len, int flags)
+{
+ return recv(sockfd, buf, len, flags);
 }
 
  
