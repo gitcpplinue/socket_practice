@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
 
     // ----------接收-----------
     memset(tcpbuffer, 0, sizeof(tcpbuffer));
-    iret = g_tcps.Recv(tcpbuffer, sizeof(tcpbuffer), 0);
+    iret = g_tcps.Recv(tmp.data.fd, tcpbuffer, sizeof(tcpbuffer), 0);
 
     if(iret <= 0) // tcp连接的另一端发生错误或已断开
     {
@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
 
 
     // ----------发送-----------
-    iret = g_tcps.Send(tcpbuffer, strlen(tcpbuffer), 0);
+    iret = g_tcps.Send(tmp.data.fd, tcpbuffer, strlen(tcpbuffer), 0);
     if(iret <= 0)
     {
      g_epoll.Delete(tmp.data.fd, EPOLLIN);
