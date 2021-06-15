@@ -1,4 +1,4 @@
-#pragme once
+#pragma once
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -13,11 +13,13 @@
 #include <sys/time.h>
 #include <time.h>
 #include <dirent.h>
-#inclulde <string>
+#include <string>
+#include <stdarg.h>
 
 #include "SIG.h"
+#include "Timer.h"
 
-unsing namespace std;
+using namespace std;
 
 class Log
 {
@@ -26,10 +28,20 @@ private:
 
 public:
  Log();
-
+ ~Log();
+ 
+ // 创建或打开日志文件
  bool Open(const char *filename, const char *mode);
+ // 向日志文件写数据
  bool Write(const char *fmt, ...);
+ // 关闭日志文件
  void Close(); 
+
+/* 
+* log.Open("log.txt", "w");
+* log.Write("a test for first log file %d %d\n", 1, 2);
+* log.Close();
+*/
 
 
 };

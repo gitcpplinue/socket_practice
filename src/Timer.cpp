@@ -2,25 +2,23 @@
 
 Timer::Timer()
 {
- memset(&m_sec, 0, sizeof(m_sec));
- memset(&m_begin, 0, sizeof(m_begin));
- memset(&m_end, 0, sizeof(m_end));
- m_state = stop;
+ m_begin = m_end = m_count = 0;
+ m_state = STOP;
 }
 
-Timer::~Timer
+Timer::~Timer()
 {}
 
 
-int Timer::Start()
+double Timer::Start()
 {
- if(m_state != running)  
+ if(m_state != RUN)  
  {
   timeval begin;
 
   gettimeofday(&begin, 0); 
   m_begin = Time2Double(begin);
-  m_state = running;
+  m_state = RUN;
 
   return 0;
  }
@@ -28,16 +26,16 @@ int Timer::Start()
   return -1;
 }
 
-int Timer::Pause()
+double Timer::Pause()
 {
- if(m_state == running)  
+ if(m_state == RUN)  
  { 
   timeval end;
 
   gettimeofday(&end, 0); 
   m_end = Time2Double(end);
   m_count += m_end - m_begin;
-  m_state = pause;
+  m_state = PAUSE;
 
   return m_count;
  }
@@ -45,22 +43,22 @@ int Timer::Pause()
   return -1;
 }
 
-int Timer::Stop()
+double Timer::Stop()
 {
- if(m_state == stop)  
+ if(m_state == STOP)  
   return -1;
 
- if(m_state == running)
+ if(m_state == RUN)
  { 
   timeval end;
 
   gettimeofday(&end, 0); 
   m_end = Time2Double(end);
   m_count += m_end - m_begin;
-  m_state = stop;
+  m_state = STOP;
  }
 
-  doube tmp = m_count;
+  double tmp = m_count;
   m_count = 0;
   return tmp;
 }

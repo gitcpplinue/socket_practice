@@ -1,5 +1,4 @@
 #include "Log.h"
-#include "Timer.h"
 
 Log::Log()
 {
@@ -16,25 +15,26 @@ bool Log::Open(const char *filename, const char *mode)
 {
  Close();
  
- string filedir;
- string fname = filename;
+ string fileDir;
+ string fileName = filename;
 
- char *p = strrchr(filename, '/');
- if(p != NULL) // 如果文件名使用了绝对路径或相对路径
+ size_t locate = fileName.find_last_of('/');
+ if(locate != -1) // 如果文件名使用了绝对路径或相对路径
  {
-  *(p + 1) = '\0';
-  filedir = filename; // 存储文件的前置目录
+  // 保存路径名，保留最后的'/'
+  fileDir = fileName.substr(0, locate + 1);
  
-  MKDIR(filedir.c_str(), 0755); // 递归创建前置目录
+  MKDIR(fileDir.c_str(), 0755); // 递归创建前置目录
  }
 
- m_file = fopen(fname, mode);
+ m_file = fopen(filename, mode);
  if(m_file == NULL)
  {
   perror("fopen");
   return false;
  }
-
+ 
+// printf("open log file \"%s\" \n", filename);
  return true;
 }
 
@@ -46,7 +46,8 @@ bool Log::Write(const char *fmt, ...)
  va_start(va, fmt);
 
  date = LocalTime();
-
+ 
+ // 先写入时间信息，再写入数据
  fprintf(m_file, "%s ", date.c_str());
  vfprintf(m_file, fmt, va);
 
@@ -78,7 +79,7 @@ int MKDIR(const char *pathname, mode_t mode)
   if(access(tmp.c_str(), F_OK) == 0)
    continue;
      
-  if(mkdir(tmp, mode) == -1)
+  if(mkdir(tmp.c_str(), mode) == -1)
   {
    perror("mkdir");
    return -1;

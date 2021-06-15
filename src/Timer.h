@@ -3,9 +3,12 @@
 #include <sys/time.h>
 #include <time.h>
 #include <stdio.h>
+#include <string>
+#include <string.h>
 
+using namespace std;
 
-enum timeState{ running, pause, stop };
+enum timeState{ RUN, PAUSE, STOP };
 
 class Timer
 {
@@ -20,11 +23,11 @@ public:
   ~Timer();
   
   // 成功返回0，失败返回-1
-  int Start();
+  double Start();
   // 成功返回计时时间，失败返回-1
-  int Pause(); 
+  double Pause(); 
   // 成功返回计时时间并将m_count清零，失败返回-1
-  int Stop();
+  double Stop();
 };
 
 // 以“yyyy-mm-dd hh:mm:ss”的格式返回当前时间
