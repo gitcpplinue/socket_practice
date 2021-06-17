@@ -6,14 +6,6 @@ TcpServer::TcpServer()
  m_clientfd = 0; 
 }
 
-
-TcpServer::TcpServer(int port)
-{
- m_listenfd = 0;
- m_clientfd = 0; 
-}
-
-
 TcpServer::~TcpServer()
 { 
  if(m_listenfd != 0)
@@ -40,19 +32,21 @@ bool TcpServer::Init(int port)
   perror("socket");
   return false;
  }
-
+ // 监听套接字参数初始化
  sockaddr_in servaddr;
  memset(&servaddr, 0, sizeof(servaddr));
  servaddr.sin_family = AF_INET;
  servaddr.sin_port = htons(port);
  servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
+ // 绑定
  if(bind(m_listenfd, (sockaddr*)&servaddr, sizeof(servaddr)) != 0)
  {
   perror("bind");
   return false;
  }
  
+ // 监听
  if(listen(m_listenfd, 10) != 0)
  {
   perror("listen");
@@ -67,9 +61,8 @@ bool TcpServer::Init(int port)
 
 bool TcpServer::Accept()
 {
- int socklen = sizeof(sockaddr_in);
- sockaddr_in clientaddr;
- m_clientfd = accept(m_listenfd, (sockaddr*)&clientaddr, (socklen_t*)&socklen);
+ // 在这里不需要对客户端的信息进行操作，后2个参数填0
+ m_clientfd = accept(m_listenfd, NULL, NULL); 
  if(m_clientfd == -1)
  {
   perror("accept");

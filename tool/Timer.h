@@ -16,7 +16,7 @@ private:
   double m_begin, m_end, m_count;
   timeState m_state;
 
-  // 将timeval格式数据转换为double
+  // 将timeval格式时间转换为double
   double Time2Double(timeval time);
 public:
   Timer();

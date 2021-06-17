@@ -56,6 +56,7 @@ int main(int argc, char *argv[])
  g_epoll.Create();
  g_epoll.Add(listenfd, EPOLLIN);
 
+
  while(1)
  {
   int indfd = g_epoll.Wait();
@@ -77,13 +78,13 @@ int main(int argc, char *argv[])
 
     int clientfd = g_tcps.GetClient();
     g_epoll.Add(clientfd, EPOLLIN);
+    SetKeepAlive(clientfd, 120, 20, 5);
 
     printf("第%d个客户端已连接 \n", ++count);
-    SetKeepAlive(clientfd, 120, 20, 5);
 
    }
    else if(tmp.events & EPOLLIN) // 默认其它响应EPOLLIN事件的套接字都是客户端套接字
-   { // 将客户端发送的消息重新发送回去
+   { // 将接收到的消息直接发回
     int iret;
 
     // ----------接收-----------

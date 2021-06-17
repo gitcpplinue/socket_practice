@@ -11,6 +11,7 @@ Epoll::~Epoll()
 {
  if(m_epollfd != 0)
   m_epollfd = 0;
+ close(m_epollfd);
 }
 
 
@@ -75,7 +76,6 @@ int Epoll::Wait(int size, int wait_t )
   size = 1;
  else if(size > MAXEVENTS)
   size = MAXEVENTS;
-
  if(wait_t < -1)
   wait_t = -1;
 
@@ -96,7 +96,7 @@ epoll_event Epoll::GetEvent(int index)
  if(index < 0)
   index = 0;
  else if(index > MAXEVENTS)
-  index = MAXEVENTS;
+  index = MAXEVENTS - 1;
 
  return m_evs[index];
 

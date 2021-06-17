@@ -30,7 +30,7 @@ bool TcpClient::Init()
 bool TcpClient::Connect(const char *addr, int port)
 {
  sockaddr_in servaddr;
-/*
+/* 设置ip地址的另一种方法
  hostent* h = gethostbyname(addr);
  if(h == 0)
  {

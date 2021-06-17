@@ -27,13 +27,13 @@ void* ClientThread(void* arg);
 // TCP保活机制激活与设置
 int SetKeepAlive(int fd, int time, int intvl, int probes);
 
-// 将sin_addr转换为可读的字符串
+// 通过套接字标识符获取客户端ip地址，结果从s_addr返回
 void GetSockAddr(int sockfd, char* s_addr);
 
 
 // 响应终止信号9和15
 void EXIT(int sig);
-// 线程退出函数
+// 线程清理函数
 void th_exit(void* arg);
 
 
@@ -78,13 +78,14 @@ int main(int argc, char *argv[])
   char s_addr[15];
   memset(s_addr, 0, 15);
 
-  
+  // 创建新线程 
   clientfd = g_tcps.GetClient();
   err = pthread_create(&tid, NULL, ClientThread, (void*)(long)clientfd);
   if(err != 0)
     printf("线程创建失败，错误值：%d \n", err);
   g_vthreads.push_back(tid); // 将新创建的线程id存入容器
 
+  // 获取客户端的ip地址
   GetSockAddr(clientfd, s_addr);
   g_log.Write("客户端(%s)已连接 \n", s_addr);
  }
@@ -96,20 +97,23 @@ int main(int argc, char *argv[])
 void* ClientThread(void* arg)
 {
  int clientfd = (long)arg;
+ // 与tcp连接相关的统计信息
  int byte_recv = 0;
  int byte_send = 0;
  Timer timer;
 
  timer.Start();
 
-
+ // 设置保活参数
  SetKeepAlive(clientfd, 120, 20, 5);
 
  // 登记线程清理函数
  pthread_cleanup_push(th_exit, (void*)(long)clientfd);
 
- char buffer[1024];
 
+
+// ---------------数据收发----------------
+ char buffer[1024];
  // 将收到的数据原封不动发回客户端
  while(1)
  {
@@ -135,8 +139,10 @@ void* ClientThread(void* arg)
   printf("发送: %s \n", buffer);
   printf("----------------------------\n");
  }
+// --------------------------------------
 
-// printf("客户端已断开连接\n");
+
+ // 在关闭套接字之前获取客户端ip地址
  char s_addr[15];
  memset(s_addr, 0, 15);
  GetSockAddr(clientfd, s_addr);
@@ -144,6 +150,7 @@ void* ClientThread(void* arg)
 
  close(clientfd);
  
+ // 将统计数据写入日志文件
  printf("线程%x正常退出 \n", pthread_self());
  g_log.Write("客户端(%s)已断开连接。接收%dbyte，发送%dbyte，连接持续%.3fs\n", 
 	s_addr, byte_recv, byte_send, runtime);
@@ -216,11 +223,11 @@ void EXIT(int sig)
 
 // 终止所有线程
  for(pthread_t tid: g_vthreads) 
-   pthread_cancel(tid); // 对已经停止的线程再调用pthread_cancel，返回值为3
+   pthread_cancel(tid); // 如果tid标识的线程已经终止，调用pthread_cancel的返回值为3
 
  sleep(1); // 给线程的清理留出时间
  
- // 收到终止信号时，可能有线程正处于临界区内，未释放锁
+ // 收到终止信号时，可能有线程正处于日志的临界区内，未释放锁
  g_log.FreeLock();
  g_log.Write("服务端收到信号终止 \n");
  printf("服务端收到信号终止 \n");

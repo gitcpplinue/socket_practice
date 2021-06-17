@@ -11,7 +11,7 @@ Log::Log()
 
 Log::~Log()
 {
- Log::Close();
+ Close();
  pthread_mutex_destroy(&m_mutex);
 }
 
@@ -83,12 +83,12 @@ int MKDIR(const char *pathname, mode_t mode)
  {
   if(path[i] != '/')
    continue;
-  
+   
   tmp = path.substr(0, i);
 
+  // 如果目录存在，跳过；否则创建该目录
   if(access(tmp.c_str(), F_OK) == 0)
    continue;
-     
   if(mkdir(tmp.c_str(), mode) == -1)
   {
    perror("mkdir");
