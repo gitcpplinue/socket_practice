@@ -8,30 +8,3 @@
 * Timer类：计时器。
 * SIG.h：定义了一些宏简化代码。
 
-## 目录结构
-.
-├── client
-├── epoll_server
-├── log
-│   └── log.txt
-├── makefile
-├── README.md
-├── server
-├── socket
-│   ├── client.cpp
-│   ├── Epoll.cpp
-│   ├── Epoll.h
-│   ├── epoll_server.cpp
-│   ├── server.cpp
-│   ├── TcpClient.cpp
-│   ├── TcpClient.h
-│   ├── TcpServer.cpp
-│   └── TcpServer.h
-├── test
-├── test.cpp
-└── tool
-    ├── Log.cpp
-    ├── Log.h
-    ├── SIG.h
-    ├── Timer.cpp
-    └── Timer.h
