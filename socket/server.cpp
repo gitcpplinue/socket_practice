@@ -23,6 +23,7 @@
 
 // 线程主函数
 void* Echo(void* arg); 
+void* Httpd(void* arg); 
 
 
 // TCP保活机制激活与设置
@@ -67,7 +68,7 @@ int main(int argc, char *argv[])
  SIG_SET_FUNC(SIGTERM, EXIT);
 
  int count = 0;
- clientThread = accept_request;
+ clientThread = Httpd;
  while(1)
  {
   if(g_tcps.Accept() == false)
@@ -159,6 +160,14 @@ void* Echo(void* arg)
 
  pthread_exit(0);
 }
+
+void* Httpd(void* arg)
+{
+ int clientfd = (long)arg;
+ Http http;
+ http.accept_request(clientfd);
+}
+
 
 
 
