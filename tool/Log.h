@@ -26,7 +26,7 @@ class Log
 {
 private:
  FILE *m_file; // 日志文件
- pthread_mutex_t m_mutex; // 互斥锁
+ static pthread_mutex_t m_mutex; // 互斥锁
 
 public:
  Log();

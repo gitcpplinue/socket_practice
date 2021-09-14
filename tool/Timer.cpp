@@ -83,6 +83,45 @@ string LocalTime()
 
 
 
+
+string Date()
+{
+ time_t cur_t;
+ tm *tmp;
+ char buf[50];
+
+ memset(buf, 0, sizeof(buf));
+
+ time(&cur_t);
+ tmp = localtime(&cur_t);
+ strftime(buf, 50, "%F", tmp); 
+ 
+ string ret = buf;
+ return ret;
+}
+
+
+
+
+
+string Time()
+{
+ time_t cur_t;
+ tm *tmp;
+ char buf[50];
+
+ memset(buf, 0, sizeof(buf));
+
+ time(&cur_t);
+ tmp = localtime(&cur_t);
+ strftime(buf, 50, "%X", tmp); 
+ 
+ string ret = buf;
+ return ret;
+}
+
+
+
 double Timer::Time2Double(timeval time)
 {
   char tmp[20]; 

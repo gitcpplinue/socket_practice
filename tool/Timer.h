@@ -28,10 +28,13 @@ public:
   double Pause(); 
   // 成功返回计时时间并将m_count清零，失败返回-1
   double Stop();
+
 };
 
 // 以“yyyy-mm-dd hh:mm:ss”的格式返回当前时间
 string LocalTime();
+string Date();
+string Time();
 
 
 

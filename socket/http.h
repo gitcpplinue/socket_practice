@@ -11,6 +11,7 @@
 #include <pthread.h>
 #include <sys/wait.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #include "../tool/Log.h"
 #include "../tool/Timer.h"
@@ -34,6 +35,7 @@ private:
  char m_intput[1024];
  char m_output[1024];
  Timer *m_timer;
+
 
 public:
  Http();

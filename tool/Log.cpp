@@ -1,11 +1,11 @@
 #include "Log.h"
 
+pthread_mutex_t Log::m_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+
 Log::Log()
 {
  m_file = 0;
- int err = pthread_mutex_init(&m_mutex, 0);
- if(err != 0)
-  printf("mutex_init(%d):%s \n", err, strerror(err));
 }
 
 
@@ -46,14 +46,14 @@ bool Log::Write(const char *fmt, ...)
 {
  pthread_mutex_lock(&m_mutex);
 
- string date;
+ //string date;
 
  va_list va;
  va_start(va, fmt);
 
- date = LocalTime();
+ //date = LocalTime();
  // 先写入时间信息，再写入数据
- fprintf(m_file, "%s ", date.c_str());
+ //fprintf(m_file, "%s ", date.c_str());
 
  vfprintf(m_file, fmt, va);
 

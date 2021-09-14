@@ -51,6 +51,7 @@ Http::~Http()
 
 
 
+
 void Http::accept_request(int socket)
 {
  int m_client = socket; // 连接套接字
@@ -58,7 +59,26 @@ void Http::accept_request(int socket)
  size_t i, j;		 
  struct stat st;	// 文件状态 
 
+ // 启动计时器
  m_timer->Start();
+
+ /* 根据当前时间生成日志文件路径并打开 */ 
+ time_t ct;
+ tm *tmp;
+ char logfile[20] = { 0 };
+ char logpath[50] = { 0 };
+
+ time(&ct);
+ tmp = localtime(&ct);
+ strftime(logfile, 50, "%y%m%d", tmp);
+
+// timeval tv;
+// gettimeofday(&tv, 0); 
+// strftime(logfile, 50, "%H%M%S", tmp);
+// sprintf(logfile+6, "_%03d", tv.tv_usec/1000);
+
+ sprintf(logpath, "./log/web/%s", logfile);
+ m_log->Open(logpath, "a");
 
 
  // 读取第一行请求行
@@ -153,6 +173,7 @@ void Http::bad_request(int m_client)
   "<P>Your browser sent a bad request, "
   "such as a POST without a Content-Length.\r\n");
 
+ m_log->Write("%s\n", m_buf);
  send(m_client, m_buf, sizeof(m_buf), 0);
 }
 
@@ -163,17 +184,17 @@ void Http::bad_request(int m_client)
 // 获取文件的所有内容，功能与cat命令相同
 void Http::cat(int m_client, FILE *resource)
 {
- printf("---------- cat ---------- \n");
  char m_buf[1024];
+
 
  fgets(m_buf, sizeof(m_buf), resource);
  while (!feof(resource))
  {
-  printf("%s", m_buf);
+  m_log->Write("%s", m_buf);
   send(m_client, m_buf, strlen(m_buf), 0);
   fgets(m_buf, sizeof(m_buf), resource);
  }
- printf("\n");
+ m_log->Write("\n\n");
 }
 
 
@@ -190,6 +211,7 @@ void Http::cannot_execute(int m_client)
   "\r\n"
   "<P>Error prohibited CGI execution.\r\n");
 
+ m_log->Write("%s\n", m_buf);
  send(m_client, m_buf, strlen(m_buf), 0);
 }
 
@@ -221,6 +243,7 @@ void Http::execute_cgi(int m_client, const char *m_path,
  char c;
  int numchars = 1;
  int content_length = -1;
+ char *entity_body = NULL;
 
 // m_buf[0] = 'A'; m_buf[1] = '\0';
 
@@ -245,12 +268,23 @@ void Http::execute_cgi(int m_client, const char *m_path,
    bad_request(m_client);
    return;
   }
+  // 保存实体部分
+  else
+  {
+   entity_body = new char[content_length + 1];
+   for (i = 0; i < content_length; ++i)
+    recv(m_client, &entity_body[i], 1, 0);
+   entity_body[content_length] = '\0';
+   m_log->Write("%s\n\n", entity_body);
+  }
  }
 
- printf("---------- execute_cgi ---------- \n");
+
+
+ m_log->Write("---------- execute_cgi ---------- \n");
  // 回应报文的状态行
  sprintf(m_buf, "HTTP/1.0 200 OK\r\n");
- printf("%s", m_buf);
+ m_log->Write("%s", m_buf);
  send(m_client, m_buf, strlen(m_buf), 0);
 
  // 生成2个管道用于双向通信，创建子进程
@@ -316,22 +350,23 @@ void Http::execute_cgi(int m_client, const char *m_path,
 
   // 之前的循环已将首部行情况，套接字里只剩下实体部分（如果存在的话）
   if (strcasecmp(m_method, "POST") == 0)
-   // 从套接字获取实体部分数据，以c作为中介通过管道传给cgi进程
+   // 获取实体部分数据，以c作为中介通过管道传给cgi进程
    for (i = 0; i < content_length; i++) 
    {
-    recv(m_client, &c, 1, 0);
-    printf("%c", c);
+    //recv(m_client, &c, 1, 0);
+    //m_log->Write("%c", c);
+    c = entity_body[i];
     write(cgi_input[1], &c, 1);
    }
 
   // 从cgi进程获取程序的执行结果，传入套接字
   while (read(cgi_output[0], &c, 1) > 0)
   {
-   printf("%c", c);
+   m_log->Write("%c", c);
    send(m_client, &c, 1, 0);
   }
 
-  printf("\n\n");
+  m_log->Write("\n\n");
   close(cgi_output[0]);
   close(cgi_input[1]);
 
@@ -382,8 +417,8 @@ int Http::get_line(int sock, char *m_buf, int size)
  // 最后m_buf[size-1]位置由'\0'填补
  m_buf[i] = '\0';
 
- // 获取http报文的同时将其输出到屏幕上
- printf("%s", m_buf);
+ // 获取http报文的同时将其写入日志
+ m_log->Write("%s", m_buf);
  
  return i;
 }
@@ -395,16 +430,16 @@ int Http::get_line(int sock, char *m_buf, int size)
 // http状态行 
 void Http::headers(int m_client, const char *filename)
 {
- printf("---------- headers ---------- \n");
  char m_buf[1024];
- (void)filename;
+
+// (void)filename;
 
  strcpy(m_buf, "HTTP/1.0 200 OK\r\n"
   SERVER_STRING
   "Content-Type: text/html\r\n"
   "\r\n");
 
- printf("%s", m_buf);
+ m_log->Write("%s\n", m_buf);
  send(m_client, m_buf, strlen(m_buf), 0);
 }
 
@@ -427,6 +462,7 @@ void Http::not_found(int m_client)
   "is unavailable or nonexistent.\r\n"
   "</BODY></HTML>\r\n");
 
+ m_log->Write("%s\n", m_buf);
  send(m_client, m_buf, strlen(m_buf), 0);
 }
 
@@ -450,6 +486,8 @@ void Http::serve_file(int m_client, const char *filename)
   not_found(m_client);
  else
  {
+  m_log->Write("---------- serve_file ---------- \n");
+
   headers(m_client, filename);
   cat(m_client, resource);
  }
@@ -473,6 +511,7 @@ void Http::unimplemented(int m_client)
   "<BODY><P>HTTP request method not supported.\r\n"
   "</BODY></HTML>\r\n");
 
+ m_log->Write("%s\n", m_buf);
  send(m_client, m_buf, strlen(m_buf), 0);
 }
 
