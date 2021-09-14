@@ -11,6 +11,7 @@
 #include <netinet/tcp.h>
 #include <vector>
 
+#include "http.h"
 #include "TcpServer.h"
 #include "../tool/SIG.h"
 #include "../tool/Log.h"
@@ -21,7 +22,7 @@
 
 
 // 线程主函数
-void* ClientThread(void* arg); 
+void* Echo(void* arg); 
 
 
 // TCP保活机制激活与设置
@@ -45,6 +46,8 @@ std::vector<pthread_t> g_vthreads; // 存储所有线程id
 
 int main(int argc, char *argv[])
 {
+ void* (*clientThread)(void*);
+
  if (argc != 2)
  {
   printf("Error! try:./server 5000 \n\n");
@@ -54,17 +57,17 @@ int main(int argc, char *argv[])
  // 在套接字完成初始化前屏蔽所有信号
  SIG_DISABLE_ALL;
 
+ // 初始化监听套接字
  if(g_tcps.Init(atoi(argv[1])) == false) 
   return -1;
 
- g_log.Open("./log/log.txt", "a");
- g_log.Write("服务端启动 \n");
  
  // 只设置SIGINT和SIGTERM的信号处理函数
  SIG_SET_FUNC(SIGINT, EXIT);
  SIG_SET_FUNC(SIGTERM, EXIT);
 
  int count = 0;
+ clientThread = accept_request;
  while(1)
  {
   if(g_tcps.Accept() == false)
@@ -75,26 +78,24 @@ int main(int argc, char *argv[])
 
   pthread_t tid;
   int err, clientfd;
-  char s_addr[15];
-  memset(s_addr, 0, 15);
 
   // 创建新线程 
   clientfd = g_tcps.GetClient();
-  err = pthread_create(&tid, NULL, ClientThread, (void*)(long)clientfd);
+  err = pthread_create(&tid, NULL, clientThread, (void*)(long)clientfd);
   if(err != 0)
     printf("线程创建失败，错误值：%d \n", err);
   g_vthreads.push_back(tid); // 将新创建的线程id存入容器
 
-  // 获取客户端的ip地址
-  GetSockAddr(clientfd, s_addr);
-  g_log.Write("客户端(%s)已连接 \n", s_addr);
  }
 
- g_log.Close();
 }
 
+
+
+
+
 // 线程函数
-void* ClientThread(void* arg)
+void* Echo(void* arg)
 {
  int clientfd = (long)arg;
  // 与tcp连接相关的统计信息
@@ -109,8 +110,6 @@ void* ClientThread(void* arg)
 
  // 登记线程清理函数
  pthread_cleanup_push(th_exit, (void*)(long)clientfd);
-
-
 
 // ---------------数据收发----------------
  char buffer[1024];
@@ -152,14 +151,18 @@ void* ClientThread(void* arg)
  
  // 将统计数据写入日志文件
  printf("线程%x正常退出 \n", pthread_self());
- g_log.Write("客户端(%s)已断开连接。接收%dbyte，发送%dbyte，连接持续%.3fs\n", 
-	s_addr, byte_recv, byte_send, runtime);
+// g_log.Write("客户端(%s)已断开连接。接收%dbyte，发送%dbyte，连接持续%.3fs\n", 
+//	s_addr, byte_recv, byte_send, runtime);
 
  // 线程正常结束，弹出清理函数而不执行
  pthread_cleanup_pop(0);
 
  pthread_exit(0);
 }
+
+
+
+
 
 
 // TCP保活机制激活与设置
@@ -200,6 +203,8 @@ int SetKeepAlive(int fd, int time, int intvl, int probes)
 }
 
 
+
+
 void GetSockAddr(int sockfd, char* s_addr)
 {
  sockaddr_in addr;
@@ -207,6 +212,9 @@ void GetSockAddr(int sockfd, char* s_addr)
  getpeername(sockfd, (sockaddr*)&addr, &len);
  sprintf(s_addr, "%s", inet_ntoa(addr.sin_addr));
 }
+
+
+
 
 
 
@@ -228,16 +236,20 @@ void EXIT(int sig)
  sleep(1); // 给线程的清理留出时间
  
  // 收到终止信号时，可能有线程正处于日志的临界区内，未释放锁
- g_log.FreeLock();
- g_log.Write("服务端收到信号终止 \n");
+ //g_log.FreeLock();
+// g_log.Write("服务端收到信号终止 \n");
  printf("服务端收到信号终止 \n");
 
- g_log.Close(); 
+// g_log.Close(); 
  close(g_tcps.GetListen());
  close(g_tcps.GetClient()); // close调用错误会返回-1，errno设为9:Bad file descriptor
   
  exit(0);
 }
+
+
+
+
 
 // 线程清理函数
 void th_exit(void* arg)

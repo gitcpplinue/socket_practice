@@ -21,19 +21,21 @@
 
 using namespace std;
 
+#define MAX 50000
+
 void* threadfoo(void* arg);
 
-TcpClient g_tcpc[10];
+TcpClient g_tcpc[MAX];
 int main()
 {
- pthread_t tids[10];
+ pthread_t tids[MAX];
  
- for(int i = 0; i < 10; ++i)
+ for(int i = 0; i < MAX; ++i)
  {
   pthread_create(&tids[i], NULL, threadfoo, (void*)(long)i);
  }
 
- for(int i = 0; i < 10; ++i)
+ for(int i = 0; i < MAX; ++i)
   pthread_join(tids[i], 0);
 
 }
@@ -44,7 +46,7 @@ void* threadfoo(void* arg)
 
  g_tcpc[seq].Init();
  g_tcpc[seq].Connect("127.0.0.1", 5000);
-
+/*
  char buffer[100];
  for(int i = 0; i < seq + 1; ++i) 
  {
@@ -70,8 +72,9 @@ void* threadfoo(void* arg)
    printf("iret = %d \n", iret);
    break;
   }
+
 //  printf("接收：%s \n", buffer);
 //  printf("--------------------------\n");
- }
+ }*/
  pthread_exit(0);
 }

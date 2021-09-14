@@ -28,7 +28,7 @@ bool Log::Open(const char *filename, const char *mode)
   // 保存路径名，保留最后的'/'
   fileDir = fileName.substr(0, locate + 1);
  
-  MKDIR(fileDir.c_str(), 0755); // 递归创建前置目录
+  MkDir(fileDir.c_str(), 0755); // 递归创建前置目录
  }
 
  m_file = fopen(filename, mode);
@@ -50,10 +50,13 @@ bool Log::Write(const char *fmt, ...)
 
  va_list va;
  va_start(va, fmt);
+
  date = LocalTime();
  // 先写入时间信息，再写入数据
  fprintf(m_file, "%s ", date.c_str());
+
  vfprintf(m_file, fmt, va);
+
  va_end(va);
 
  fflush(m_file);
@@ -73,7 +76,7 @@ void Log::Close()
 
 
 
-int MKDIR(const char *pathname, mode_t mode)
+int MkDir(const char *pathname, mode_t mode)
 {
  string tmp;
  string path = pathname;

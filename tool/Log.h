@@ -25,8 +25,8 @@ using namespace std;
 class Log
 {
 private:
- FILE *m_file;
- pthread_mutex_t m_mutex;
+ FILE *m_file; // 日志文件
+ pthread_mutex_t m_mutex; // 互斥锁
 
 public:
  Log();
@@ -50,4 +50,4 @@ public:
 };
 
 // 用迭代方式创建所有前置目录
-int MKDIR(const char *pathname, mode_t mode = 0755);
+int MkDir(const char *pathname, mode_t mode = 0755);

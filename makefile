@@ -8,7 +8,7 @@ tool = $(wildcard ./tool/*.cpp)
 Tcps = $(dir_socket)/TcpServer.cpp $(tool)
 Tcpc =  $(dir_socket)/TcpClient.cpp
 
-Epoll = $(dir_socket)/epoll_server.cpp $(dir_socket)/Eopll.cpp $(Tcps)
+Epoll = $(dir_socket)/epoll_server.cpp $(dir_socket)/Epoll.cpp $(Tcps)
 
 
 test: test.cpp $(tool) $(Tcpc)
@@ -19,7 +19,7 @@ run: test
 
 net: server client
 
-server: $(dir_socket)/server.cpp $(Tcps) 
+server: $(dir_socket)/server.cpp $(Tcps) $(dir_socket)/http.cpp
 	g++ -g -o server $^ -lpthread -std=c++11
 epoll_server: $(Epoll)
 	g++ -g -o epoll_server $(Epoll) -lpthread -std=c++11
