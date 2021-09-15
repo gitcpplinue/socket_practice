@@ -1,0 +1,82 @@
+GET / HTTP/1.1
+Host: 192.168.0.126:4000
+Connection: keep-alive
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
+Purpose: prefetch
+Accept-Encoding: gzip, deflate
+Accept-Language: zh-CN,zh;q=0.9
+
+---------- serve_file ---------- 
+HTTP/1.0 200 OK
+Server: jdbhttpd/0.1.0
+Content-Type: text/html
+
+
+<HTML>
+<TITLE>Index</TITLE>
+<BODY>
+<P>Welcome to J. David's webserver.
+<H1>CGI demo
+<FORM ACTION="color.cgi" METHOD="POST">
+Enter a color: <INPUT TYPE="text" NAME="color">
+<INPUT TYPE="submit">
+</FORM>
+</BODY>
+</HTML>
+
+
+GET /favicon.ico HTTP/1.1
+Host: 192.168.0.126:4000
+Connection: keep-alive
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36
+Accept: image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8
+Referer: http://192.168.0.126:4000/
+Accept-Encoding: gzip, deflate
+Accept-Language: zh-CN,zh;q=0.9
+
+---------- not_found ---------- 
+HTTP/1.0 404 NOT FOUND
+Server: jdbhttpd/0.1.0
+Content-Type: text/html
+
+<HTML><TITLE>Not Found</TITLE>
+<BODY><P>The server could not fulfill
+your request because the resource specified
+is unavailable or nonexistent.
+</BODY></HTML>
+
+POST /color.cgi HTTP/1.1
+Host: 192.168.0.126:4000
+Connection: keep-alive
+Content-Length: 10
+Cache-Control: max-age=0
+Upgrade-Insecure-Requests: 1
+Origin: http://192.168.0.126:4000
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
+Referer: http://192.168.0.126:4000/
+Accept-Encoding: gzip, deflate
+Accept-Language: zh-CN,zh;q=0.9
+
+color=blue
+
+---------- execute_cgi ---------- 
+HTTP/1.0 200 OK
+Content-Type: text/html; charset=ISO-8859-1
+
+<!DOCTYPE html
+	PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+	 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
+<head>
+<title>BLUE</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+</head>
+<body bgcolor="blue">
+<h1>This is blue</h1>
+</body>
+</html>
+

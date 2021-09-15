@@ -15,6 +15,8 @@ Log::~Log()
  pthread_mutex_destroy(&m_mutex);
 }
 
+
+
 bool Log::Open(const char *filename, const char *mode)
 {
  Close();
@@ -42,6 +44,8 @@ bool Log::Open(const char *filename, const char *mode)
  return true;
 }
 
+
+
 bool Log::Write(const char *fmt, ...)
 {
  pthread_mutex_lock(&m_mutex);
@@ -63,6 +67,8 @@ bool Log::Write(const char *fmt, ...)
 
  pthread_mutex_unlock(&m_mutex);
 }
+
+
 
 void Log::Close()
 {

@@ -161,11 +161,27 @@ void* Echo(void* arg)
  pthread_exit(0);
 }
 
+
+// 处理客户端套接字的线程清理函数，获取Http对象的指针，调用shutdown成员函数
+void shutdownHttp(void* arg)
+{
+ Http* ht = (Http*)arg;
+ ht->shutdown(NULL);
+ printf("---------- clean: %x ----------\n", arg);
+}
+
+// 线程函数
 void* Httpd(void* arg)
 {
  int clientfd = (long)arg;
  Http http;
+
+ pthread_cleanup_push(shutdownHttp, (void*)&http);
+
  http.accept_request(clientfd);
+
+ pthread_cleanup_pop(0);
+ pthread_exit(0);
 }
 
 
@@ -239,10 +255,12 @@ void EXIT(int sig)
  }
 
 // 终止所有线程
- for(pthread_t tid: g_vthreads) 
+ for(pthread_t tid: g_vthreads)
+ { 
    pthread_cancel(tid); // 如果tid标识的线程已经终止，调用pthread_cancel的返回值为3
+   pthread_join(tid, 0);
+ }
 
- sleep(1); // 给线程的清理留出时间
  
  // 收到终止信号时，可能有线程正处于日志的临界区内，未释放锁
  //g_log.FreeLock();

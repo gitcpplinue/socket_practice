@@ -38,6 +38,7 @@ Http::Http()
  m_client = 0;
  m_cgi = 0;
  m_query_string = NULL;
+ m_htmlfp = NULL;
  m_log = new Log;
  m_timer = new Timer;
 }
@@ -58,9 +59,6 @@ void Http::accept_request(int socket)
  int numchars;		 
  size_t i, j;		 
  struct stat st;	// 文件状态 
-
- // 启动计时器
- m_timer->Start();
 
  /* 根据当前时间生成日志文件路径并打开 */ 
  time_t ct;
@@ -173,6 +171,7 @@ void Http::bad_request(int m_client)
   "<P>Your browser sent a bad request, "
   "such as a POST without a Content-Length.\r\n");
 
+ m_log->Write("---------- bad_request ---------- \n");
  m_log->Write("%s\n", m_buf);
  send(m_client, m_buf, sizeof(m_buf), 0);
 }
@@ -211,6 +210,7 @@ void Http::cannot_execute(int m_client)
   "\r\n"
   "<P>Error prohibited CGI execution.\r\n");
 
+ m_log->Write("---------- cannot_execute ---------- \n");
  m_log->Write("%s\n", m_buf);
  send(m_client, m_buf, strlen(m_buf), 0);
 }
@@ -300,6 +300,12 @@ void Http::execute_cgi(int m_client, const char *m_path,
   cannot_execute(m_client);
   return;
  }
+/*
+ m_pipes[0] = cgi_output[0];
+ m_pipes[1] = cgi_output[1];
+ m_pipes[2] = cgi_intput[0];
+ m_pipes[3] = cgi_intput[1];
+//*/
  if ( (pid = fork()) < 0 ) 
  {
   cannot_execute(m_client);
@@ -462,6 +468,7 @@ void Http::not_found(int m_client)
   "is unavailable or nonexistent.\r\n"
   "</BODY></HTML>\r\n");
 
+ m_log->Write("---------- not_found ---------- \n");
  m_log->Write("%s\n", m_buf);
  send(m_client, m_buf, strlen(m_buf), 0);
 }
@@ -486,6 +493,8 @@ void Http::serve_file(int m_client, const char *filename)
   not_found(m_client);
  else
  {
+  m_htmlfp = resource;
+ 
   m_log->Write("---------- serve_file ---------- \n");
 
   headers(m_client, filename);
@@ -511,8 +520,27 @@ void Http::unimplemented(int m_client)
   "<BODY><P>HTTP request method not supported.\r\n"
   "</BODY></HTML>\r\n");
 
+ m_log->Write("---------- unimplemented ---------- \n");
  m_log->Write("%s\n", m_buf);
  send(m_client, m_buf, strlen(m_buf), 0);
 }
 
 
+
+
+
+// 线程清理函数，关闭可能打开的文件
+void Http::shutdown(void* arg)
+{
+ m_log->Close();
+ if (m_htmlfp != NULL)
+ {
+  fclose(m_htmlfp);
+  m_htmlfp;
+ }
+/*
+ for(int i = 0; i < 4; ++i)
+  close(m_pipes[i]);
+//*/
+
+}

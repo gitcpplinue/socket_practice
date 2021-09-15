@@ -12,6 +12,7 @@
 #include <sys/wait.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <vector>
 
 #include "../tool/Log.h"
 #include "../tool/Timer.h"
@@ -30,12 +31,12 @@ private:
  char m_path[512];     
  int m_cgi;      
  char *m_query_string;
+ FILE *m_htmlfp;
 
  Log *m_log;
- char m_intput[1024];
- char m_output[1024];
  Timer *m_timer;
 
+// int m_pipes[4];
 
 public:
  Http();
@@ -53,4 +54,6 @@ public:
  void serve_file(int, const char *);
  int startup(u_short *);
  void unimplemented(int);
+
+ void shutdown(void*);
 };
