@@ -11,7 +11,7 @@
 #include <pthread.h>
 #include <sys/wait.h>
 #include <stdlib.h>
-
+#include <vector>
 #include "http.h" 
 
 /*
@@ -243,7 +243,8 @@ void Http::execute_cgi(int m_client, const char *m_path,
  char c;
  int numchars = 1;
  int content_length = -1;
- char *entity_body = NULL;
+ string entity_body;
+// char *entity_body = NULL;
 
 // m_buf[0] = 'A'; m_buf[1] = '\0';
 
@@ -271,11 +272,15 @@ void Http::execute_cgi(int m_client, const char *m_path,
   // 保存实体部分
   else
   {
-   entity_body = new char[content_length + 1];
+   char c;
+//   entity_body = new char[content_length + 1];
+   entity_body.resize(content_length, '\0');
    for (i = 0; i < content_length; ++i)
-    recv(m_client, &entity_body[i], 1, 0);
-   entity_body[content_length] = '\0';
-   m_log->Write("%s\n\n", entity_body);
+   {
+    recv(m_client, &c, 1, 0);
+    entity_body[i] = c;    
+   }
+   m_log->Write("%s\n\n", entity_body.c_str());
   }
  }
 
@@ -286,6 +291,12 @@ void Http::execute_cgi(int m_client, const char *m_path,
  sprintf(m_buf, "HTTP/1.0 200 OK\r\n");
  m_log->Write("%s", m_buf);
  send(m_client, m_buf, strlen(m_buf), 0);
+
+
+/* ----------- 
+ * 在这里对请求实体(POST)或m_query_string(GET)进行检查，
+ * 以此决定是从redis缓存中取数据，还是执行cgi程序
+*/
 
  // 生成2个管道用于双向通信，创建子进程
  // cgi_output：用于子进程向父进程发送数据
@@ -498,6 +509,10 @@ void Http::serve_file(int m_client, const char *filename)
   m_log->Write("---------- serve_file ---------- \n");
 
   headers(m_client, filename);
+
+/*
+ * 在这里根据resource决定调用cat或从redis数据库获取html文件
+ */
   cat(m_client, resource);
  }
  fclose(resource);
