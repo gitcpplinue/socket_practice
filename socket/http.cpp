@@ -285,9 +285,9 @@ void Http::execute_cgi(int m_client, const char *m_path,
 
 
  // 先检查redis数据库
- if (g_redis.HasHash(hkey, hfiled))
+ if (g_redis->HasHash(hkey, hfiled))
  {
-  string hcgi = g_redis.GetHash(hkey, hfiled);
+  string hcgi = g_redis->GetHash(hkey, hfiled);
 
   m_log->Write("%s", hcgi.c_str());
   send(m_client, hcgi.c_str(), hcgi.size(), 0);
@@ -386,7 +386,7 @@ void Http::execute_cgi(int m_client, const char *m_path,
    }
 
    // 记入redis数据库
-   g_redis.SetHash(hkey, hfiled, hvalue);
+   g_redis->SetHash(hkey, hfiled, hvalue);
  
    m_log->Write("\n\n");
    close(cgi_output[0]);
@@ -494,9 +494,9 @@ void Http::serve_file(int m_client, const char *filename)
 
   // 如果redis数据库已存有数据,就从数据库中获取html文件
   string sfile(filename);
-  if (g_redis.HasString(sfile))
+  if (g_redis->HasString(sfile))
   {   
-   string shtml = g_redis.GetString(sfile);
+   string shtml = g_redis->GetString(sfile);
 
    m_log->Write("%s", shtml.c_str());
    send(m_client, shtml.c_str(), shtml.size(), 0);
@@ -553,7 +553,7 @@ void Http::cat(int m_client, const char *filename)
 
   fgets(m_buf, sizeof(m_buf), m_htmlfp);
  }
-  g_redis.SetString(filename, svalue);
+  g_redis->SetString(filename, svalue);
 
  m_log->Write("\n\n");
 }

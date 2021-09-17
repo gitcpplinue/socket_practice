@@ -38,5 +38,6 @@ public:
 
 };
 
-extern Redis g_redis;
+extern Redis *g_redis;
+//extern Redis g_redis;
 

@@ -50,7 +50,9 @@ int main(int argc, char *argv[])
 {
  void* (*clientThread)(void*);
 
- g_redis.Connect();
+
+ g_redis = new Redis;
+ g_redis->Connect();
 
  if (argc != 2)
  {
@@ -274,6 +276,8 @@ void EXIT(int sig)
  close(g_tcps.GetListen());
  close(g_tcps.GetClient()); // close调用错误会返回-1，errno设为9:Bad file descriptor
   
+ //g_redis->Close();
+ 
  exit(0);
 }
 

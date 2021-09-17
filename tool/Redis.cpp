@@ -2,11 +2,13 @@
 
 
 
-Redis g_redis;
+Redis *g_redis;
+//Redis g_redis;
 
 Redis::Redis()
 {
  m_connect = NULL;
+ m_reply = NULL;
  pthread_mutex_t m_mutex = PTHREAD_MUTEX_INITIALIZER;
 }
 
@@ -15,11 +17,19 @@ Redis::Redis()
 
 Redis::~Redis()
 {
- if (m_connect != NULL)
-  redisFree(m_connect);
  if (m_reply != NULL)
+ {
   freeReplyObject(m_reply);
- 
+  m_reply = NULL;
+ }
+
+ if (m_connect != NULL)
+ {
+  redisFree(m_connect);
+  m_connect = NULL;
+ }
+
+ pthread_mutex_unlock(&m_mutex);
  pthread_mutex_destroy(&m_mutex);
 }
 
@@ -169,6 +179,8 @@ string Redis::GetHash(string key, string filed)
 }
 
 
+
+
 // 检查redis数据库中是否存有hash类型数据key-filed
 bool Redis::HasHash(string key, string filed)
 {
@@ -185,24 +197,6 @@ bool Redis::HasHash(string key, string filed)
 
  return set;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
