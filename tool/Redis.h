@@ -1,3 +1,4 @@
+#pragma once
 #include <iostream>
 #include <vector>
 #include <unistd.h>
@@ -36,3 +37,6 @@ public:
  bool HasHash(string key, string filed);
 
 };
+
+extern Redis g_redis;
+

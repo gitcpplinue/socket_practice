@@ -2,6 +2,7 @@
 
 
 
+Redis g_redis;
 
 Redis::Redis()
 {

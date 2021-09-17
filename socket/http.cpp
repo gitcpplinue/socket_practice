@@ -180,26 +180,6 @@ void Http::bad_request(int m_client)
 
 
 
-// 获取文件的所有内容，功能与cat命令相同
-void Http::cat(int m_client, FILE *resource)
-{
- char m_buf[1024];
-
-
- fgets(m_buf, sizeof(m_buf), resource);
- while (!feof(resource))
- {
-  m_log->Write("%s", m_buf);
-  send(m_client, m_buf, strlen(m_buf), 0);
-  fgets(m_buf, sizeof(m_buf), resource);
- }
- m_log->Write("\n\n");
-}
-
-
-
-
-
 // 普通的http响应报文
 void Http::cannot_execute(int m_client)
 {
@@ -244,36 +224,45 @@ void Http::execute_cgi(int m_client, const char *m_path,
  int numchars = 1;
  int content_length = -1;
  string entity_body;
-// char *entity_body = NULL;
+ // 执行redis数据库查询需要的字符串
+ string hkey;
+ string hfiled;
+ string hvalue;
 
-// m_buf[0] = 'A'; m_buf[1] = '\0';
+
+ hkey = m_method; // hash数据结构key关键字
 
  // GET方法，从套接字取出首部行信息，不进行任何处理
  if (strcasecmp(m_method, "GET") == 0)
+ {
   while ((numchars > 0) && strcmp("\n", m_buf))  
    numchars = get_line(m_client, m_buf, sizeof(m_buf));
+
+  hfiled = m_query_string; // hash数据结构filed字段
+ }
  else    // POST方法，从套接字取出首部行信息，
  {	 // 仅处理"Content-Length"字段
   numchars = get_line(m_client, m_buf, sizeof(m_buf));
+
+  // 获取"Content-Length"字段数据
   while ((numchars > 0) && strcmp("\n", m_buf))
   {
    m_buf[15] = '\0';
-   // 获取"Content-Length"字段数据
    if (strcasecmp(m_buf, "Content-Length:") == 0)
     content_length = atoi(&(m_buf[16]));
    numchars = get_line(m_client, m_buf, sizeof(m_buf));
   }
+
   // 使用了POST请求却没有提供实体
   if (content_length == -1) 
   {
    bad_request(m_client);
    return;
   }
-  // 保存实体部分
+  // 从套接字中获取剩下的POST方法实体部分
   else
   {
    char c;
-//   entity_body = new char[content_length + 1];
    entity_body.resize(content_length, '\0');
    for (i = 0; i < content_length; ++i)
    {
@@ -281,10 +270,12 @@ void Http::execute_cgi(int m_client, const char *m_path,
     entity_body[i] = c;    
    }
    m_log->Write("%s\n\n", entity_body.c_str());
+
+   hfiled = entity_body; // hash数据结构filed字段
   }
+  
+   
  }
-
-
 
  m_log->Write("---------- execute_cgi ---------- \n");
  // 回应报文的状态行
@@ -293,103 +284,119 @@ void Http::execute_cgi(int m_client, const char *m_path,
  send(m_client, m_buf, strlen(m_buf), 0);
 
 
-/* ----------- 
- * 在这里对请求实体(POST)或m_query_string(GET)进行检查，
- * 以此决定是从redis缓存中取数据，还是执行cgi程序
-*/
-
- // 生成2个管道用于双向通信，创建子进程
- // cgi_output：用于子进程向父进程发送数据
- // cgi_input：用于父进程向子进程发送数据
- if (pipe(cgi_output) < 0) 
+ // 先检查redis数据库
+ if (g_redis.HasHash(hkey, hfiled))
  {
-  cannot_execute(m_client);
-  return;
+  string hcgi = g_redis.GetHash(hkey, hfiled);
+
+  m_log->Write("%s", hcgi.c_str());
+  send(m_client, hcgi.c_str(), hcgi.size(), 0);
+  m_log->Write("\n\n");
  }
- if (pipe(cgi_input) < 0) 
+ else
  {
-  cannot_execute(m_client);
-  return;
- }
-/*
- m_pipes[0] = cgi_output[0];
- m_pipes[1] = cgi_output[1];
- m_pipes[2] = cgi_intput[0];
- m_pipes[3] = cgi_intput[1];
-//*/
- if ( (pid = fork()) < 0 ) 
- {
-  cannot_execute(m_client);
-  return;
- }
-
- // 子进程执行部分
- if (pid == 0)  
- {
-  char meth_env[255];
-  char query_env[255];
-  char length_env[255];
-
-  // 子进程的 stdout 重定向到 cgi_output 的输入端
-  // 子进程的 stdin  重定向到 cgi_input  的读取端
-  dup2(cgi_output[1], 1);
-  dup2(cgi_input[0], 0);
-
-  close(cgi_output[0]);
-  close(cgi_input[1]);
-  
-  // 设置用于cgi程序的环境变量
-  sprintf(meth_env, "REQUEST_METHOD=%s", m_method);
-  putenv(meth_env);
-  // GET
-  if (strcasecmp(m_method, "GET") == 0) 
+  // 生成2个管道用于双向通信，创建子进程
+  // cgi_output：用于子进程向父进程发送数据
+  // cgi_input：用于父进程向子进程发送数据
+  if (pipe(cgi_output) < 0) 
   {
-   sprintf(query_env, "QUERY_STRING=%s", m_query_string);
-   putenv(query_env);
+   cannot_execute(m_client);
+   return;
   }
-  // POST
+  if (pipe(cgi_input) < 0) 
+  {
+   cannot_execute(m_client);
+   return;
+  }
+ /* 不确定是否要记录管道标识符方便清理
+  m_pipes[0] = cgi_output[0];
+  m_pipes[1] = cgi_output[1];
+  m_pipes[2] = cgi_intput[0];
+  m_pipes[3] = cgi_intput[1];
+ //*/
+  if ( (pid = fork()) < 0 ) 
+  {
+   cannot_execute(m_client);
+   return;
+  }
+ 
+  // 子进程执行部分
+  if (pid == 0)  
+  {
+   char meth_env[255];
+   char query_env[255];
+   char length_env[255];
+ 
+   // 子进程的 stdout 重定向到 cgi_output 的输入端
+   // 子进程的 stdin  重定向到 cgi_input  的读取端
+   dup2(cgi_output[1], 1);
+   dup2(cgi_input[0], 0);
+ 
+   close(cgi_output[0]);
+   close(cgi_input[1]);
+   
+   // 设置用于cgi程序的环境变量
+   sprintf(meth_env, "REQUEST_METHOD=%s", m_method);
+   putenv(meth_env);
+   // GET
+   if (strcasecmp(m_method, "GET") == 0) 
+   {
+    sprintf(query_env, "QUERY_STRING=%s", m_query_string);
+    putenv(query_env);
+   }
+   // POST
+   else 
+   {    
+    sprintf(length_env, "CONTENT_LENGTH=%d", content_length);
+    putenv(length_env);
+   }
+ 
+   // 执行cgi程序
+   // cgi程序替换当前的子进程执行，保留了子进程的运行环境
+   execl(m_path, m_path, NULL);
+   exit(0);
+  } 
+  // 父进程执行部分
   else 
   {    
-   sprintf(length_env, "CONTENT_LENGTH=%d", content_length);
-   putenv(length_env);
-  }
+   close(cgi_output[1]);
+   close(cgi_input[0]);
+   
+   string temp(1024, '\0');
 
-  // 执行cgi程序
-  // cgi程序替换当前的子进程执行，保留了子进程的运行环境
-  execl(m_path, m_path, NULL);
-  exit(0);
- } 
- // 父进程执行部分
- else 
- {    
-  close(cgi_output[1]);
-  close(cgi_input[0]);
+ 
+   if (strcasecmp(m_method, "POST") == 0)
+    // 获取实体部分数据，以c作为中介通过管道传给cgi进程
+    for (i = 0; i < content_length; i++) 
+    {
+     //recv(m_client, &c, 1, 0);
+     //m_log->Write("%c", c);
+     c = entity_body[i];
+     write(cgi_input[1], &c, 1);
+    }
 
-  // 之前的循环已将首部行情况，套接字里只剩下实体部分（如果存在的话）
-  if (strcasecmp(m_method, "POST") == 0)
-   // 获取实体部分数据，以c作为中介通过管道传给cgi进程
-   for (i = 0; i < content_length; i++) 
+   // 从cgi进程获取程序的输出，传入套接字
+   while (read(cgi_output[0], &c, 1) > 0)
    {
-    //recv(m_client, &c, 1, 0);
-    //m_log->Write("%c", c);
-    c = entity_body[i];
-    write(cgi_input[1], &c, 1);
+    m_log->Write("%c", c);
+
+    send(m_client, &c, 1, 0);
+
+    hvalue += c; // 使用hvalue记录cgi程序的输出
    }
 
-  // 从cgi进程获取程序的执行结果，传入套接字
-  while (read(cgi_output[0], &c, 1) > 0)
-  {
-   m_log->Write("%c", c);
-   send(m_client, &c, 1, 0);
+   // 记入redis数据库
+   g_redis.SetHash(hkey, hfiled, hvalue);
+ 
+   m_log->Write("\n\n");
+   close(cgi_output[0]);
+   close(cgi_input[1]);
+ 
+   // 等待子进程执行完毕
+   waitpid(pid, &status, 0);
   }
-
-  m_log->Write("\n\n");
-  close(cgi_output[0]);
-  close(cgi_input[1]);
-
-  // 等待子进程执行完毕
-  waitpid(pid, &status, 0);
  }
+
 }
 
 
@@ -444,26 +451,6 @@ int Http::get_line(int sock, char *m_buf, int size)
 
 
 
-// http状态行 
-void Http::headers(int m_client, const char *filename)
-{
- char m_buf[1024];
-
-// (void)filename;
-
- strcpy(m_buf, "HTTP/1.0 200 OK\r\n"
-  SERVER_STRING
-  "Content-Type: text/html\r\n"
-  "\r\n");
-
- m_log->Write("%s\n", m_buf);
- send(m_client, m_buf, strlen(m_buf), 0);
-}
-
-
-
-
-
 // 普通的http响应报文
 void Http::not_found(int m_client)
 {
@@ -490,7 +477,6 @@ void Http::not_found(int m_client)
 // 返回http响应报文和html文件内容
 void Http::serve_file(int m_client, const char *filename)
 {
- FILE *resource = NULL;
  int numchars = 1;
  char m_buf[1024];
 
@@ -499,23 +485,77 @@ void Http::serve_file(int m_client, const char *filename)
  while ((numchars > 0) && strcmp("\n", m_buf)) 
   numchars = get_line(m_client, m_buf, sizeof(m_buf));
 
- resource = fopen(filename, "r");
- if (resource == NULL)
+ m_htmlfp = fopen(filename, "r");
+ if (m_htmlfp == NULL)
   not_found(m_client);
  else
  {
-  m_htmlfp = resource;
- 
-  m_log->Write("---------- serve_file ---------- \n");
-
   headers(m_client, filename);
 
-/*
- * 在这里根据resource决定调用cat或从redis数据库获取html文件
- */
-  cat(m_client, resource);
+  // 如果redis数据库已存有数据,就从数据库中获取html文件
+  string sfile(filename);
+  if (g_redis.HasString(sfile))
+  {   
+   string shtml = g_redis.GetString(sfile);
+
+   m_log->Write("%s", shtml.c_str());
+   send(m_client, shtml.c_str(), shtml.size(), 0);
+   m_log->Write("\n\n");
+  }
+  else
+   cat(m_client, filename);
  }
- fclose(resource);
+ fclose(m_htmlfp);
+}
+
+
+
+
+
+// http状态行 
+void Http::headers(int m_client, const char *filename)
+{
+ char m_buf[1024];
+
+ m_log->Write("---------- serve_file ---------- \n");
+ strcpy(m_buf, "HTTP/1.0 200 OK\r\n"
+  SERVER_STRING
+  "Content-Type: text/html\r\n"
+  "\r\n");
+
+ m_log->Write("%s\n", m_buf);
+ send(m_client, m_buf, strlen(m_buf), 0);
+}
+
+
+
+
+
+// 获取文件的所有内容，功能与cat命令相同
+void Http::cat(int m_client, const char *filename)
+{
+ char m_buf[1024] = { 0 };
+ string svalue, stemp;
+
+ // 读取的文件长度为1023，确保最后一个字符是'\0'
+ fgets(m_buf, sizeof(m_buf) - 1, m_htmlfp);
+ while (!feof(m_htmlfp))
+ {
+  // 写日志
+  m_log->Write("%s", m_buf);
+
+  // 发往套接字
+  send(m_client, m_buf, strlen(m_buf), 0);
+
+  // 存入redis数据库
+  stemp = m_buf;
+  svalue += stemp;
+
+  fgets(m_buf, sizeof(m_buf), m_htmlfp);
+ }
+  g_redis.SetString(filename, svalue);
+
+ m_log->Write("\n\n");
 }
 
 

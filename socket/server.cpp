@@ -16,6 +16,7 @@
 #include "../tool/SIG.h"
 #include "../tool/Log.h"
 #include "../tool/Timer.h"
+#include "../tool/Redis.h"
 
 
 
@@ -48,6 +49,8 @@ std::vector<pthread_t> g_vthreads; // 存储所有线程id
 int main(int argc, char *argv[])
 {
  void* (*clientThread)(void*);
+
+ g_redis.Connect();
 
  if (argc != 2)
  {
