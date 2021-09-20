@@ -8,6 +8,7 @@
 
 using namespace std;
 
+// 计时器的3个状态
 enum timeState{ RUN, PAUSE, STOP };
 
 class Timer
@@ -33,7 +34,9 @@ public:
 
 // 以“yyyy-mm-dd hh:mm:ss”的格式返回当前时间
 string LocalTime();
+// 返回日期
 string Date();
+// 返回时间
 string Time();
 
 

@@ -27,30 +27,33 @@ void* Echo(void* arg);
 void* Httpd(void* arg); 
 
 
-// TCP保活机制激活与设置
+// TCP保活机制激活与设置（用于回声服务器）
 int SetKeepAlive(int fd, int time, int intvl, int probes);
 
-// 通过套接字标识符获取客户端ip地址，结果从s_addr返回
+// 通过套接字标识符获取客户端ip地址，结果从s_addr返回（用于回声服务器）
 void GetSockAddr(int sockfd, char* s_addr);
 
 
 // 响应终止信号9和15
 void EXIT(int sig);
-// 线程清理函数
+
+// 线程清理函数（用于回声服务器）
 void th_exit(void* arg);
 
 
 
 TcpServer g_tcps; // 封装了TCP服务端的操作
-Log g_log; // 日志
+Log g_log; // 日志（用于回声服务器）
 std::vector<pthread_t> g_vthreads; // 存储所有线程id
 
 
 int main(int argc, char *argv[])
 {
+ // 线程函数的函数指针
  void* (*clientThread)(void*);
 
-
+ // Redis对象的指针g_redis声明在Redis.cpp中
+ // 创建Redis实例并连接redis数据库
  g_redis = new Redis;
  g_redis->Connect();
 
@@ -72,8 +75,10 @@ int main(int argc, char *argv[])
  SIG_SET_FUNC(SIGINT, EXIT);
  SIG_SET_FUNC(SIGTERM, EXIT);
 
- int count = 0;
+ //int count = 0;
+ // 线程函数指针指向Http函数
  clientThread = Httpd;
+
  while(1)
  {
   if(g_tcps.Accept() == false)
@@ -100,7 +105,7 @@ int main(int argc, char *argv[])
 
 
 
-// 线程函数
+// 回声服务器线程函数
 void* Echo(void* arg)
 {
  int clientfd = (long)arg;
@@ -108,7 +113,8 @@ void* Echo(void* arg)
  int byte_recv = 0;
  int byte_send = 0;
  Timer timer;
-
+ 
+ // 开始计时
  timer.Start();
 
  // 设置保活参数
@@ -157,8 +163,8 @@ void* Echo(void* arg)
  
  // 将统计数据写入日志文件
  printf("线程%x正常退出 \n", pthread_self());
-// g_log.Write("客户端(%s)已断开连接。接收%dbyte，发送%dbyte，连接持续%.3fs\n", 
-//	s_addr, byte_recv, byte_send, runtime);
+ g_log.Write("客户端(%s)已断开连接。接收%dbyte，发送%dbyte，连接持续%.3fs\n", 
+	s_addr, byte_recv, byte_send, runtime);
 
  // 线程正常结束，弹出清理函数而不执行
  pthread_cleanup_pop(0);
@@ -167,24 +173,31 @@ void* Echo(void* arg)
 }
 
 
-// 处理客户端套接字的线程清理函数，获取Http对象的指针，调用shutdown成员函数
-void shutdownHttp(void* arg)
+/*
+ * 处理客户端套接字的线程清理函数，获取Http对象的指针，调用shutdown成员函数
+ * 因为将类的成员函数设为线程清理函数比较麻烦，就采用了这种方式
+ * 不在main函数前声明，直接定义
+ */
+void ShutDownHttp(void* arg)
 {
  Http* ht = (Http*)arg;
  ht->shutdown(NULL);
  printf("---------- clean: %x ----------\n", arg);
 }
 
-// 线程函数
+// http服务器线程函数
 void* Httpd(void* arg)
 {
  int clientfd = (long)arg;
  Http http;
 
- pthread_cleanup_push(shutdownHttp, (void*)&http);
+ // 登记线程清理函数
+ pthread_cleanup_push(ShutDownHttp, (void*)&http);
 
+ // 处理http请求
  http.accept_request(clientfd);
 
+ // 正常退出，弹出清理函数
  pthread_cleanup_pop(0);
  pthread_exit(0);
 }
@@ -195,10 +208,12 @@ void* Httpd(void* arg)
 
 
 
-// TCP保活机制激活与设置
-// time: 经过time秒没发送报文后，执行保活操作
-// intvl: 报文段发送间隔
-// probes: 尝试次数
+/*
+ * TCP保活机制激活与设置
+ * time: 经过time秒没发送报文后，执行保活操作
+ * intvl: 报文段发送间隔
+ * probes: 尝试次数
+ */
 int SetKeepAlive(int fd, int time, int intvl, int probes)
 {
  int val = 1;
@@ -234,7 +249,7 @@ int SetKeepAlive(int fd, int time, int intvl, int probes)
 
 
 
-
+// 根据套接字sockfd得到客户端的地址，通过s_addr返回
 void GetSockAddr(int sockfd, char* s_addr)
 {
  sockaddr_in addr;
@@ -266,17 +281,16 @@ void EXIT(int sig)
    pthread_join(tid, 0);
  }
 
- 
+/* http服务器中，线程清理函数会负责关闭日志对象，在这里注释掉 */
  // 收到终止信号时，可能有线程正处于日志的临界区内，未释放锁
  //g_log.FreeLock();
-// g_log.Write("服务端收到信号终止 \n");
+ //g_log.Write("服务端收到信号终止 \n");
  printf("服务端收到信号终止 \n");
 
 // g_log.Close(); 
  close(g_tcps.GetListen());
  close(g_tcps.GetClient()); // close调用错误会返回-1，errno设为9:Bad file descriptor
   
- //g_redis->Close();
  
  exit(0);
 }

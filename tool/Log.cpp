@@ -33,6 +33,7 @@ bool Log::Open(const char *filename, const char *mode)
   MkDir(fileDir.c_str(), 0755); // 递归创建前置目录
  }
 
+ // 打开文件
  m_file = fopen(filename, mode);
  if(m_file == NULL)
  {
@@ -46,6 +47,7 @@ bool Log::Open(const char *filename, const char *mode)
 
 
 
+// 使用互斥锁保证文件写入过程的互斥性
 bool Log::Write(const char *fmt, ...)
 {
  pthread_mutex_lock(&m_mutex);
@@ -82,6 +84,7 @@ void Log::Close()
 
 
 
+// 递归创建前置目录
 int MkDir(const char *pathname, mode_t mode)
 {
  string tmp;
@@ -98,7 +101,9 @@ int MkDir(const char *pathname, mode_t mode)
   // 如果目录存在，跳过；否则创建该目录
   if(access(tmp.c_str(), F_OK) == 0)
    continue;
-  if(mkdir(tmp.c_str(), mode) == -1)
+  
+  int imk = mkdir(tmp.c_str(), mode);
+  if(imk == -1)
   {
    perror("mkdir");
    return -1;

@@ -10,6 +10,7 @@ Timer::~Timer()
 {}
 
 
+// 使用m_begin记下开始的时间，状态改为RUN
 double Timer::Start()
 {
  if(m_state != RUN)  
@@ -26,6 +27,8 @@ double Timer::Start()
   return -1;
 }
 
+// 只有当计时器状态为RUN时才能正确执行
+// 用m_end记录当前时间，返回m_end-m_begin的差值，状态改为PAUSE 
 double Timer::Pause()
 {
  if(m_state == RUN)  
@@ -43,6 +46,8 @@ double Timer::Pause()
   return -1;
 }
 
+// 如果处于RUN状态，计算新的时间差值
+// 最后返回m_count的值，将m_count清空 
 double Timer::Stop()
 {
  if(m_state == STOP)  
@@ -64,7 +69,7 @@ double Timer::Stop()
 }
 
 
-
+// 格式化返回当前时间
 string LocalTime()
 {
  time_t cur_t;
@@ -83,7 +88,7 @@ string LocalTime()
 
 
 
-
+// 同上
 string Date()
 {
  time_t cur_t;
@@ -99,10 +104,6 @@ string Date()
  string ret = buf;
  return ret;
 }
-
-
-
-
 
 string Time()
 {

@@ -63,6 +63,8 @@ int Redis::SetString(string key, string value)
 {
  pthread_mutex_lock(&m_mutex);
 
+ // 执行redis命令
+ // 为了能保存带有空格的值，需要使用%b
  m_reply = (redisReply*)redisCommand(m_connect, "SET %s %b", 
 	key.c_str(), value.c_str(), value.size());
  if (m_reply == NULL)
@@ -74,12 +76,12 @@ int Redis::SetString(string key, string value)
 
  if (!(m_reply->type == REDIS_REPLY_STATUS && strcasecmp(m_reply->str, "OK")) == 0)
  {
-  printf("SetObject Failed\n", m_connect, m_reply);
+//  printf("SetObject Failed\n", m_connect, m_reply);
   pthread_mutex_unlock(&m_mutex);
   return -1;
  }
  freeReplyObject(m_reply);
- printf("Object set OK\n");
+// printf("Object set OK\n");
 
  pthread_mutex_unlock(&m_mutex);
 }
@@ -102,7 +104,7 @@ string Redis::GetString(string key)
 
  freeReplyObject(m_reply);
 
- printf("Object get OK\n");
+// printf("Object get OK\n");
 
  pthread_mutex_unlock(&m_mutex);
  return sret; 
@@ -144,12 +146,12 @@ int Redis::SetHash(string key, string filed, string value)
 
  if (!(m_reply->type == REDIS_REPLY_STATUS && strcasecmp(m_reply->str, "1")) == 0)
  {
-  printf("SetObject Failed\n", m_connect, m_reply);
+//  printf("SetObject Failed\n", m_connect, m_reply);
   pthread_mutex_unlock(&m_mutex);
   return -1;
  }
  freeReplyObject(m_reply);
- printf("Object set OK\n");
+// printf("Object set OK\n");
 
  pthread_mutex_unlock(&m_mutex);
 }
@@ -171,7 +173,7 @@ string Redis::GetHash(string key, string filed)
  
  freeReplyObject(m_reply);
  
- printf("Object get OK\n");
+// printf("Object get OK\n");
  
  pthread_mutex_unlock(&m_mutex);
  return sret;

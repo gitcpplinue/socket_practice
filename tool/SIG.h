@@ -13,7 +13,7 @@
 #define SIG_ENABLE(i) signal(i, SIG_DEF)
 #define SIG_ENABLE_ALL for(int i = 1; i <=31; ++i) SIG_ENABLE(i) 
 
-// 设置信号i的处理函数
+// 设置信号i的处理函数foo
 #define SIG_SET_FUNC(i, foo) signal(i, foo)
 
 #endif

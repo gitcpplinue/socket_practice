@@ -52,7 +52,61 @@ Http::~Http()
 
 
 
+ 
+/*
+ * 从套接字中获取一行数据
+ * 为了识别"\r\n"，以1字节为单位一个个读取
+ */
+int Http::get_line(int sock, char *m_buf, int size)
+{
+ int i = 0;
+ char c = '\0';
+ int n;
 
+ // 读取size-1个字节或遇到'\n'时停止
+ while ((i < size - 1) && (c != '\n'))
+ {
+  // 取1字节存入&c
+  n = recv(sock, &c, 1, 0);
+  if (n > 0)
+  {
+   // 遇到'\r'时，先查看下一个字符是否是'\n'，不取走数据
+   if (c == '\r')
+   {
+    n = recv(sock, &c, 1, MSG_PEEK);
+    // 如果遇到了"\r\n"，舍弃'\r'，只读取'\n'
+    if ((n > 0) && (c == '\n'))
+     recv(sock, &c, 1, 0);
+    // 否则用'\n'替换'\r'
+    else
+     c = '\n';
+   }
+
+   // 将数据存入缓冲区
+   m_buf[i] = c;
+   i++;
+  }
+  // 套接字中没有数据可取，用'\n'结尾
+  else
+   c = '\n';
+ }
+
+ // 最后m_buf[size-1]位置由'\0'填补
+ m_buf[i] = '\0';
+
+ // 获取http报文的同时将其写入日志
+ m_log->Write("%s", m_buf);
+ 
+ return i;
+}
+
+
+
+
+/*
+ * 解析http报文的第1行
+ * 根据解析结果决定下一步调用的函数
+ */
 void Http::accept_request(int socket)
 {
  int m_client = socket; // 连接套接字
@@ -65,16 +119,10 @@ void Http::accept_request(int socket)
  tm *tmp;
  char logfile[20] = { 0 };
  char logpath[50] = { 0 };
-
  time(&ct);
  tmp = localtime(&ct);
+
  strftime(logfile, 50, "%y%m%d", tmp);
-
-// timeval tv;
-// gettimeofday(&tv, 0); 
-// strftime(logfile, 50, "%H%M%S", tmp);
-// sprintf(logfile+6, "_%03d", tv.tv_usec/1000);
-
  sprintf(logpath, "./log/web/%s", logfile);
  m_log->Open(logpath, "a");
 
@@ -90,7 +138,7 @@ void Http::accept_request(int socket)
  }
  m_method[i] = '\0';
 
- // 未定义方法
+ // 如果是GET和POST以外的方法
  if (strcasecmp(m_method, "GET") && strcasecmp(m_method, "POST"))
  {
   unimplemented(m_client);
@@ -127,10 +175,10 @@ void Http::accept_request(int socket)
 
  // 文件在服务器中的路径
  sprintf(m_path, "./htdocs%s", m_url);
- // 默认文件路径
+ // 默认文件"index.html"
  if (m_path[strlen(m_path) - 1] == '/')
   strcat(m_path, "index.html");
- // 如果文件不存在，取出套接字中的首部行数据，发送http响应报文
+ // 如果文件不存在，取出套接字中的剩余数据，发送http响应报文
  if (stat(m_path, &st) == -1) 
  {
   while ((numchars > 0) && strcmp("\n", m_buf)) 
@@ -142,7 +190,7 @@ void Http::accept_request(int socket)
   // 如果路径m_path是个目录，补上默认文件名
   if ((st.st_mode & S_IFMT) == S_IFDIR)
    strcat(m_path, "/index.html");
- // 该文件的所有者、所在组、其他人都拥有执行权限
+ // 如果该文件的所有者、所在组、其他人都拥有执行权限，将其视为cgi文件
   if ((st.st_mode & S_IXUSR) || (st.st_mode & S_IXGRP) || (st.st_mode & S_IXOTH))
    m_cgi = 1;
 
@@ -160,57 +208,12 @@ void Http::accept_request(int socket)
 
 
 
-// 普通的http响应报文
-void Http::bad_request(int m_client)
-{
- char m_buf[1024];
-
- sprintf(m_buf, "HTTP/1.0 400 BAD REQUEST\r\n"
-  "Content-type: text/html\r\n"
-  "\r\n"
-  "<P>Your browser sent a bad request, "
-  "such as a POST without a Content-Length.\r\n");
-
- m_log->Write("---------- bad_request ---------- \n");
- m_log->Write("%s\n", m_buf);
- send(m_client, m_buf, sizeof(m_buf), 0);
-}
-
-
-
-
-
-// 普通的http响应报文
-void Http::cannot_execute(int m_client)
-{
- char m_buf[1024];
-
- sprintf(m_buf, "HTTP/1.0 500 Internal Server Error\r\n"
-  "Content-type: text/html\r\n"
-  "\r\n"
-  "<P>Error prohibited CGI execution.\r\n");
-
- m_log->Write("---------- cannot_execute ---------- \n");
- m_log->Write("%s\n", m_buf);
- send(m_client, m_buf, strlen(m_buf), 0);
-}
-
-
-
-
-
-// 发送错误信息
-void Http::error_die(const char *sc)
-{
- perror(sc);
- exit(1);
-}
-
-
-
-
-
-// 执行m_cgi程序
+/*
+ * 根据客户端的请求设置cgi程序的环境变量。
+ * 生成子进程运行cgi程序，父进程使用管道与子进程交互。
+ * 父进程获得cgi程序（子进程）的输出，将结果传入套接字
+ * 优先使用redis缓存中的数据
+ */
 void Http::execute_cgi(int m_client, const char *m_path,
                  const char *m_method, const char *m_query_string)
 {
@@ -253,7 +256,7 @@ void Http::execute_cgi(int m_client, const char *m_path,
    numchars = get_line(m_client, m_buf, sizeof(m_buf));
   }
 
-  // 使用了POST请求却没有提供实体
+  // 如果使用了POST请求却没有提供实体
   if (content_length == -1) 
   {
    bad_request(m_client);
@@ -273,18 +276,16 @@ void Http::execute_cgi(int m_client, const char *m_path,
 
    hfiled = entity_body; // hash数据结构filed字段
   }
-  
-   
  }
 
  m_log->Write("---------- execute_cgi ---------- \n");
- // 回应报文的状态行
+ // http回应报文的状态行
  sprintf(m_buf, "HTTP/1.0 200 OK\r\n");
  m_log->Write("%s", m_buf);
  send(m_client, m_buf, strlen(m_buf), 0);
 
 
- // 先检查redis数据库
+ // 先检查redis数据库，优先从数据库获取cgi程序的输出
  if (g_redis->HasHash(hkey, hfiled))
  {
   string hcgi = g_redis->GetHash(hkey, hfiled);
@@ -366,11 +367,9 @@ void Http::execute_cgi(int m_client, const char *m_path,
 
  
    if (strcasecmp(m_method, "POST") == 0)
-    // 获取实体部分数据，以c作为中介通过管道传给cgi进程
+    // 获取http实体部分数据，以字符c作为中介通过管道传给cgi进程
     for (i = 0; i < content_length; i++) 
     {
-     //recv(m_client, &c, 1, 0);
-     //m_log->Write("%c", c);
      c = entity_body[i];
      write(cgi_input[1], &c, 1);
     }
@@ -396,55 +395,144 @@ void Http::execute_cgi(int m_client, const char *m_path,
    waitpid(pid, &status, 0);
   }
  }
-
 }
 
 
 
 
 
-// 从套接字中获取一行数据
-int Http::get_line(int sock, char *m_buf, int size)
+/*
+ * 直接将html文件内容发给客户端
+ * 优先从redis数据库获取数据
+ * 数据库未保存html文件，再执行cat函数
+ */
+void Http::serve_file(int m_client, const char *filename)
 {
- int i = 0;
- char c = '\0';
- int n;
+ int numchars = 1;
+ char m_buf[1024];
 
- // 读取size-1个字节或遇到'\n'时停止
- while ((i < size - 1) && (c != '\n'))
+ // 清空套接字内剩余的首部行
+ while ((numchars > 0) && strcmp("\n", m_buf)) 
+  numchars = get_line(m_client, m_buf, sizeof(m_buf));
+
+ // 如果redis数据库已存有数据,就从数据库中获取html文件
+ string sfile(filename);
+ if (g_redis->HasString(sfile))
  {
-  // 取1字节存入&c
-  n = recv(sock, &c, 1, 0);
-  if (n > 0)
-  {
-   // 遇到'\r'时，先查看下一个字符是否是'\n'，不取走数据
-   if (c == '\r')
-   {
-    n = recv(sock, &c, 1, MSG_PEEK);
-    // 如果遇到了"\r\n"，舍弃'\r'，只读取'\n'
-    if ((n > 0) && (c == '\n'))
-     recv(sock, &c, 1, 0);
-    // 否则用'\n'替换'\r'
-    else
-     c = '\n';
-   }
-
-   // 间数据存入缓冲区
-   m_buf[i] = c;
-   i++;
-  }
-  // 套接字中没有数据可取，用'\n'结尾
-  else
-   c = '\n';
+  // 发送http回应报文   
+  headers(m_client, filename);
+  
+  // 获取并发送html文件
+  string shtml = g_redis->GetString(sfile);
+  m_log->Write("%s", shtml.c_str());
+  send(m_client, shtml.c_str(), shtml.size(), 0);
+  m_log->Write("\n\n");
  }
+ else // 否则执行cat函数获取文件内容
+  cat(m_client, filename);
+ fclose(m_htmlfp);
+}
 
- // 最后m_buf[size-1]位置由'\0'填补
- m_buf[i] = '\0';
 
- // 获取http报文的同时将其写入日志
- m_log->Write("%s", m_buf);
- 
- return i;
+
+
+
+/* 
+ * 获取文件的所有内容，功能与cat命令相同
+ * 发送完html文件后，将文件内容存入redis数据库
+ */
+void Http::cat(int m_client, const char *filename)
+{
+ char m_buf[1024] = { 0 };
+ string svalue, stemp;
+
+ // 打开文件，如果文件存在，就读取文件
+ m_htmlfp = fopen(filename, "r");
+ if (m_htmlfp == NULL)
+  not_found(m_client);
+ else
+ {
+  // 读取的文件长度为1023，确保最后一个字符是'\0'
+  fgets(m_buf, sizeof(m_buf) - 1, m_htmlfp);
+  while (!feof(m_htmlfp))
+  {
+   // 写日志
+   m_log->Write("%s", m_buf);
+
+   // 发往套接字
+   send(m_client, m_buf, strlen(m_buf), 0);
+
+   // 存入redis数据库
+   stemp = m_buf;
+   svalue += stemp;
+
+   fgets(m_buf, sizeof(m_buf), m_htmlfp);
+  }
+
+  // 存入redis数据库
+  g_redis->SetString(filename, svalue);
+
+  m_log->Write("\n\n");
+ }
+}
+
+
+
+
+
+// http状态行 
+void Http::headers(int m_client, const char *filename)
+{
+ char m_buf[1024];
+
+ m_log->Write("---------- serve_file ---------- \n");
+ strcpy(m_buf, "HTTP/1.0 200 OK\r\n"
+  SERVER_STRING
+  "Content-Type: text/html\r\n"
+  "\r\n");
+
+ m_log->Write("%s\n", m_buf);
+ send(m_client, m_buf, strlen(m_buf), 0);
+}
+
+
+
+
+
+
+// 普通的http响应报文
+void Http::bad_request(int m_client)
+{
+ char m_buf[1024];
+
+ sprintf(m_buf, "HTTP/1.0 400 BAD REQUEST\r\n"
+  "Content-type: text/html\r\n"
+  "\r\n"
+  "<P>Your browser sent a bad request, "
+  "such as a POST without a Content-Length.\r\n");
+
+ m_log->Write("---------- bad_request ---------- \n");
+ m_log->Write("%s\n", m_buf);
+ send(m_client, m_buf, sizeof(m_buf), 0);
+}
+
+
+
+
+
+// 普通的http响应报文
+void Http::cannot_execute(int m_client)
+{
+ char m_buf[1024];
+
+ sprintf(m_buf, "HTTP/1.0 500 Internal Server Error\r\n"
+  "Content-type: text/html\r\n"
+  "\r\n"
+  "<P>Error prohibited CGI execution.\r\n");
+
+ m_log->Write("---------- cannot_execute ---------- \n");
+ m_log->Write("%s\n", m_buf);
+ send(m_client, m_buf, strlen(m_buf), 0);
 }
 
 
@@ -474,92 +562,6 @@ void Http::not_found(int m_client)
 
 
 
-// 返回http响应报文和html文件内容
-void Http::serve_file(int m_client, const char *filename)
-{
- int numchars = 1;
- char m_buf[1024];
-
-// m_buf[0] = 'A'; m_buf[1] = '\0';
- // 清空套接字内剩余的首部行
- while ((numchars > 0) && strcmp("\n", m_buf)) 
-  numchars = get_line(m_client, m_buf, sizeof(m_buf));
-
- m_htmlfp = fopen(filename, "r");
- if (m_htmlfp == NULL)
-  not_found(m_client);
- else
- {
-  headers(m_client, filename);
-
-  // 如果redis数据库已存有数据,就从数据库中获取html文件
-  string sfile(filename);
-  if (g_redis->HasString(sfile))
-  {   
-   string shtml = g_redis->GetString(sfile);
-
-   m_log->Write("%s", shtml.c_str());
-   send(m_client, shtml.c_str(), shtml.size(), 0);
-   m_log->Write("\n\n");
-  }
-  else
-   cat(m_client, filename);
- }
- fclose(m_htmlfp);
-}
-
-
-
-
-
-// http状态行 
-void Http::headers(int m_client, const char *filename)
-{
- char m_buf[1024];
-
- m_log->Write("---------- serve_file ---------- \n");
- strcpy(m_buf, "HTTP/1.0 200 OK\r\n"
-  SERVER_STRING
-  "Content-Type: text/html\r\n"
-  "\r\n");
-
- m_log->Write("%s\n", m_buf);
- send(m_client, m_buf, strlen(m_buf), 0);
-}
-
-
-
-
-
-// 获取文件的所有内容，功能与cat命令相同
-void Http::cat(int m_client, const char *filename)
-{
- char m_buf[1024] = { 0 };
- string svalue, stemp;
-
- // 读取的文件长度为1023，确保最后一个字符是'\0'
- fgets(m_buf, sizeof(m_buf) - 1, m_htmlfp);
- while (!feof(m_htmlfp))
- {
-  // 写日志
-  m_log->Write("%s", m_buf);
-
-  // 发往套接字
-  send(m_client, m_buf, strlen(m_buf), 0);
-
-  // 存入redis数据库
-  stemp = m_buf;
-  svalue += stemp;
-
-  fgets(m_buf, sizeof(m_buf), m_htmlfp);
- }
-  g_redis->SetString(filename, svalue);
-
- m_log->Write("\n\n");
-}
-
-
-
 
 // 普通的http响应报文
 void Http::unimplemented(int m_client)
@@ -584,7 +586,21 @@ void Http::unimplemented(int m_client)
 
 
 
-// 线程清理函数，关闭可能打开的文件
+// 发送错误信息
+void Http::error_die(const char *sc)
+{
+ perror(sc);
+ exit(1);
+}
+
+
+
+
+
+/* 
+ * server.cpp中的线程清理函数的参数为一个Http类的指针，
+ * 通过该指针调用Http对象的shutdown函数，关闭可能未关闭的日志文件、html文件。
+ */
 void Http::shutdown(void* arg)
 {
  m_log->Close();
