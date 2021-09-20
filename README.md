@@ -5,8 +5,6 @@
 
 
 
-# linux
-
 将原来的回声服务器改为web服务器。
 
 web服务相关的代码来自项目`Tinyhttpd`（ https://sourceforge.net/projects/tiny-httpd/ ）。在原基础上将其封装为http类，增加了redis缓存和日志。
