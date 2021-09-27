@@ -21,6 +21,7 @@ net: server client
 
 server: $(dir_socket)/server.cpp $(Tcps) $(dir_socket)/http.cpp 
 	g++ -g -o server $^ -lpthread -lhiredis -std=c++11
+
 epoll_server: $(Epoll)
 	g++ -g -o epoll_server $(Epoll) -lpthread -std=c++11
 
